@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+.codex/
+dist/
+tmp/
+.DS_Store
+Assets/EntitlementLensLogo-v2.png
