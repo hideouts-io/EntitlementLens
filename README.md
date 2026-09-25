@@ -293,6 +293,6 @@ Use focused roots, keep Deep carve disabled initially, and exclude volumes or di
 
 EntitlementLens is an early-stage macOS research and inspection tool. Its private-framework and LifecyclePolicy interpretations are build-scoped and can change between macOS releases.
 
-No software license has been selected for this repository. Until a license is added, copyright law reserves reuse and redistribution rights to the copyright holder.
+EntitlementLens is released under the [MIT License](LICENSE).
 
 Issues and focused pull requests are welcome. Reports should include the macOS version/build, target type, minimal reproduction steps, expected result, actual result, and sanitized coverage output. Never attach credentials, private keys, proprietary binaries, personal data, or unrestricted forensic evidence to a public issue.
