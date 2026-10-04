@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Assets/EntitlementLensLogo-Circular.png" alt="EntitlementLens logo" width="260">
+  <img src="Assets/Brand/Lens-v4/EntitlementLens-Wordmark-Navy.png" alt="EntitlementLens logo — Inspect · Verify · Compare · Export" width="900">
 </p>
 
 # EntitlementLens
@@ -47,11 +47,13 @@ Use the Coverage view after every significant scan. A missing result is not evid
 
 ## Visual tour
 
+<img src="docs/screenshots/entitlementlens-welcome.png" alt="EntitlementLens welcome screen with the blue inspection lens icon">
+
 Focused scan and navigation | Per-architecture entitlements and SuperBlob slots
 --- | ---
 <img src="docs/screenshots/entitlementlens-entitlement-details.png" alt="EntitlementLens focused scan showing the result browser and entitlement detail pane"> | <img src="docs/screenshots/entitlementlens-signature-evidence.png" alt="EntitlementLens per-architecture entitlement and XML and DER slot evidence">
 
-The screenshots use temporary copies of the Apple-supplied `/usr/bin/codesign` and `/usr/bin/ssh` binaries in `/tmp/EntitlementLens-Demo`. They contain no user documents, account identifiers, credentials, or private forensic evidence.
+The focused scan screenshots use temporary copies of the Apple-supplied `/usr/bin/codesign` and `/usr/bin/ssh` binaries in `/tmp/EntitlementLens-Demo`. They contain no user documents, account identifiers, credentials, or private forensic evidence.
 
 ## What EntitlementLens covers
 

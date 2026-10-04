@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ResultsView: View {
@@ -28,7 +29,20 @@ struct ResultsView: View {
             }
             if store.filteredFindings.isEmpty {
                 ContentUnavailableView {
-                    Label(emptyTitle, systemImage: store.isScanning ? "waveform.path.ecg" : "checkmark.seal")
+                    if store.scannedRoots.isEmpty && !store.isScanning && !store.isFiltering && store.searchText.isEmpty {
+                        Label {
+                            Text(emptyTitle)
+                        } icon: {
+                            Image(nsImage: NSApp.applicationIconImage)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 96, height: 96)
+                                .accessibilityHidden(true)
+                        }
+                        .accessibilityIdentifier("results.welcome")
+                    } else {
+                        Label(emptyTitle, systemImage: store.isScanning ? "waveform.path.ecg" : "checkmark.seal")
+                    }
                 } description: {
                     Text(emptyDescription)
                 } actions: {
