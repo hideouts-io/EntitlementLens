@@ -67,6 +67,7 @@ struct ResultsView: View {
                     TableColumn("Entitlements") { finding in
                         Text(finding.entitlementCount, format: .number)
                             .monospacedDigit()
+                            .accessibilityIdentifier("result.entitlement-count.\(finding.id)")
                     }
                     .width(85)
                     TableColumn("Collection") { finding in

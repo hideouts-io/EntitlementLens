@@ -97,7 +97,8 @@ struct BinaryDetailView: View {
                 EntitlementEntriesView(entries: entries)
             }
         } label: {
-            Label("Declared Entitlements (\(entries.count))", systemImage: "checkmark.seal.fill")
+            Label("Standard entitlement dictionary (\(entries.count))", systemImage: "checkmark.seal.fill")
+                .accessibilityIdentifier("detail.standard-entitlement-dictionary")
         }
     }
 

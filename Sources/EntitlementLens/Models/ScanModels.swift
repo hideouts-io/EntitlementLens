@@ -415,11 +415,13 @@ struct ScanFinding: Codable, Hashable, Identifiable, Sendable {
     }
 
     var entitlementCount: Int {
-        signing?.entitlements.count ?? 0
+        guard let signing else { return 0 }
+        return distinctEntitlementKeys(entitlementSourceGroups(signing)).count
     }
 
     var privateEntitlementCount: Int {
-        signing?.entitlements.filter(\.isPrivate).count ?? 0
+        guard let signing else { return 0 }
+        return distinctPrivateEntitlementKeys(entitlementSourceGroups(signing)).count
     }
 
     var hasSigningProblem: Bool {
