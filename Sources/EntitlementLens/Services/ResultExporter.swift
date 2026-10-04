@@ -15,32 +15,66 @@ enum ResultExporter {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             return try encoder.encode(findings)
         case .csv:
-            return Data(csv(findings).utf8)
+            return Data(try csv(findings).utf8)
         }
     }
 
-    private static func csv(_ findings: [ScanFinding]) -> String {
+    private static func csv(_ findings: [ScanFinding]) throws -> String {
         let header = [
             "path", "analyzed_path", "file_type", "file_format", "signature_integrity", "signature_detail",
             "resource_integrity", "resource_integrity_detail", "execution_policy", "execution_policy_detail",
             "identifier", "team_id", "platform_identifier",
             "unique_cdhash", "sha256", "source_os", "host_os", "counterpart_path",
             "counterpart_relationship", "counterpart_sha256", "counterpart_differences",
-            "entitlement_key", "entitlement_value"
+            "entitlement_key", "entitlement_value",
+            "entitlement_source", "entitlement_architecture", "source_signature_integrity", "source_signature_detail",
+            "source_cdhash", "source_notes", "collection_notes", "entitlement_value_json"
         ].joined(separator: ",") + "\n"
-        let rows = findings.flatMap { finding -> [String] in
-            let entries = finding.signing?.entitlements ?? []
-            if entries.isEmpty {
-                return [row(finding: finding, entitlement: nil)]
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let rows = try findings.flatMap { finding -> [String] in
+            guard let signing = finding.signing else {
+                return [row(finding: finding, group: nil, entitlement: nil, valueJSON: "")]
             }
-            return entries.map { row(finding: finding, entitlement: $0) }
+            return try entitlementSourceGroups(signing).flatMap { group -> [String] in
+                if group.entitlements.isEmpty {
+                    return [row(finding: finding, group: group, entitlement: nil, valueJSON: "")]
+                }
+                return try group.entitlements.sorted { $0.key < $1.key }.map { entry in
+                    let data = try encoder.encode(entry.value)
+                    guard let valueJSON = String(data: data, encoding: .utf8) else {
+                        throw ResultExportError.invalidEntitlementJSON(entry.key)
+                    }
+                    return row(finding: finding, group: group, entitlement: entry, valueJSON: valueJSON)
+                }
+            }
         }
         return header + rows.joined(separator: "\n") + (rows.isEmpty ? "" : "\n")
     }
 
-    private static func row(finding: ScanFinding, entitlement: EntitlementEntry?) -> String {
+    private static func row(
+        finding: ScanFinding,
+        group: EntitlementSourceGroup?,
+        entitlement: EntitlementEntry?,
+        valueJSON: String
+    ) -> String {
         let platformIdentifier = finding.signing?.platformIdentifier.map(String.init) ?? ""
         let sourceOperatingSystem = finding.provenance.sourceOperatingSystem?.displayValue ?? ""
+        let source: String
+        let architecture: String
+        switch group?.source {
+        case .standardDictionary:
+            source = "standard_dictionary"
+            architecture = ""
+        case let .architecture(label):
+            source = "architecture_dictionary"
+            architecture = label
+        case nil:
+            source = "not_applicable"
+            architecture = ""
+        }
+        let sourceNotes = (group?.warnings ?? []) + (entitlement == nil && group != nil ? ["No entries returned."] : [])
+        let collectionNotes = Set(finding.warnings + (finding.signing?.extractionWarnings ?? [])).sorted()
         let values: [String] = [
             finding.path,
             finding.provenance.analyzedPath,
@@ -64,12 +98,31 @@ enum ResultExporter {
             finding.installedCounterpart?.sha256 ?? "",
             finding.installedCounterpart?.differences.joined(separator: " ") ?? "",
             entitlement?.key ?? "",
-            entitlement?.value.displayValue ?? ""
+            entitlement?.value.displayValue ?? "",
+            source,
+            architecture,
+            group?.status.title ?? "Not applicable",
+            group?.status.detail ?? "",
+            group?.uniqueCDHash ?? "",
+            sourceNotes.joined(separator: "\n"),
+            collectionNotes.joined(separator: "\n"),
+            valueJSON
         ]
         return values.map(escapeCSV).joined(separator: ",")
     }
 
     private static func escapeCSV(_ value: String) -> String {
         "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+}
+
+private enum ResultExportError: LocalizedError {
+    case invalidEntitlementJSON(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .invalidEntitlementJSON(key):
+            "Could not export entitlement \(key): the encoded value was not UTF-8 JSON."
+        }
     }
 }

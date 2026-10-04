@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BinaryDetailView: View {
     let finding: ScanFinding?
+    let highlightedKey: String?
     let detailAppeared: (UUID) -> Void
 
     var body: some View {
@@ -20,7 +21,8 @@ struct BinaryDetailView: View {
                         entitlements(signing.entitlements)
                         ArchitectureEntitlementsView(
                             architectures: signing.architectureEntitlements,
-                            slots: signing.entitlementSlots
+                            slots: signing.entitlementSlots,
+                            highlightedKey: highlightedKey
                         )
                         signingMetadata(signing)
                     }
@@ -94,10 +96,11 @@ struct BinaryDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
             } else {
-                EntitlementEntriesView(entries: entries)
+                EntitlementEntriesView(entries: entries, highlightedKey: highlightedKey)
             }
         } label: {
-            Label("Declared Entitlements (\(entries.count))", systemImage: "checkmark.seal.fill")
+            Label("Standard entitlement dictionary (\(entries.count))", systemImage: "checkmark.seal.fill")
+                .accessibilityIdentifier("detail.standard-entitlement-dictionary")
         }
     }
 

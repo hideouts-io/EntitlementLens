@@ -8,6 +8,7 @@ struct ScanSidebar: View {
             Section("Results") {
                 ForEach(ResultFilter.allCases) { filter in
                     Button {
+                        store.browserMode = .files
                         store.selectedFilter = filter
                     } label: {
                         HStack {
@@ -19,8 +20,8 @@ struct ScanSidebar: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(store.selectedFilter == filter ? Color.accentColor : Color.primary)
-                    .fontWeight(store.selectedFilter == filter ? .semibold : .regular)
+                    .foregroundStyle(store.browserMode == .files && store.selectedFilter == filter ? Color.accentColor : Color.primary)
+                    .fontWeight(store.browserMode == .files && store.selectedFilter == filter ? .semibold : .regular)
                 }
             }
 

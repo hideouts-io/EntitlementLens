@@ -23,6 +23,33 @@ final class ScanStore {
     var showsEmptyItems = false {
         didSet { refreshVisibleFindings() }
     }
+    var browserMode: EntitlementBrowserMode = .files {
+        didSet {
+            if browserMode == .entitlements { refreshEntitlementExplorer() }
+            else {
+                cancelEntitlementExplorer()
+                refreshVisibleFindings()
+            }
+        }
+    }
+    var explorerKeyPattern = "" {
+        didSet { refreshEntitlementExplorer() }
+    }
+    var explorerKeyMode: EntitlementKeyMatchMode = .exact {
+        didSet { refreshEntitlementExplorer() }
+    }
+    var explorerValueMode: EntitlementValueMatchMode = .any {
+        didSet { refreshEntitlementExplorer() }
+    }
+    var explorerValueText = "" {
+        didSet { refreshEntitlementExplorer() }
+    }
+    var selectedEntitlementKey: String? {
+        didSet { selectExplorerFinding() }
+    }
+    var explorerGroups: [EntitlementKeyGroup] = []
+    var explorerQueryError: String?
+    var isExploring = false
     private(set) var filteredFindings: [ScanFinding] = []
     private(set) var hiddenEmptyCount = 0
     private(set) var isFiltering = false
@@ -46,6 +73,12 @@ final class ScanStore {
     @ObservationIgnored
     private var presentationIndex: [IndexedFinding] = []
     @ObservationIgnored
+    var entitlementDeclarationIndex: [EntitlementDeclaration] = []
+    @ObservationIgnored
+    var explorerTask: Task<Void, Never>?
+    @ObservationIgnored
+    var explorerRequest = UUID()
+    @ObservationIgnored
     private var outcomeByID: [UUID: FindingOutcome] = [:]
     @ObservationIgnored
     private var filterTask: Task<Void, Never>?
@@ -63,7 +96,7 @@ final class ScanStore {
 
     var selectedFinding: ScanFinding? {
         guard let selectedFindingID else {
-            return filteredFindings.first
+            return browserMode == .files ? filteredFindings.first : nil
         }
         return findingByID[selectedFindingID]
     }
@@ -106,7 +139,7 @@ final class ScanStore {
                 try Task.checkCancellation()
                 guard filterRequest == request else { return }
                 filteredFindings = result
-                if !result.contains(where: { $0.id == selectedFindingID }) {
+                if browserMode == .files && !result.contains(where: { $0.id == selectedFindingID }) {
                     selectedFindingID = result.first?.id
                 }
                 isFiltering = false
@@ -195,6 +228,7 @@ final class ScanStore {
         scanTask?.cancel()
         scanTask = nil
         isScanning = false
+        refreshEntitlementExplorer()
     }
 
     func exportResults(format: ExportFormat) {
@@ -326,6 +360,11 @@ final class ScanStore {
             return
         }
         scanTask?.cancel()
+        cancelEntitlementExplorer()
+        entitlementDeclarationIndex = []
+        explorerGroups = []
+        selectedEntitlementKey = nil
+        explorerQueryError = nil
         findings = []
         findingByID = [:]
         filterTask?.cancel()
@@ -377,11 +416,14 @@ final class ScanStore {
         switch update {
         case let .batch(batch):
             let worker = Task.detached(priority: .utility) {
-                try batch.findings.map(indexFinding)
+                let presentations = try batch.findings.map(indexFinding)
+                let declarations = try entitlementDeclarations(batch.findings)
+                return (presentations, declarations)
             }
             let indexed: [IndexedFinding]
+            let declarations: [EntitlementDeclaration]
             do {
-                indexed = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                (indexed, declarations) = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
                 try Task.checkCancellation()
             } catch is CancellationError {
                 return
@@ -399,6 +441,7 @@ final class ScanStore {
             statistics.issues += batch.issues.count
             findings.append(contentsOf: batch.findings)
             presentationIndex.append(contentsOf: indexed)
+            entitlementDeclarationIndex.append(contentsOf: declarations)
             for item in indexed {
                 let finding = item.finding
                 findingByID[finding.id] = finding
@@ -409,14 +452,19 @@ final class ScanStore {
                 }
             }
             issues.append(contentsOf: batch.issues)
-            if !indexed.isEmpty { refreshVisibleFindings() }
+            if !indexed.isEmpty {
+                refreshVisibleFindings()
+                refreshEntitlementExplorer()
+            }
         case .completed:
             isScanning = false
             scanTask = nil
+            refreshEntitlementExplorer()
         case .cancelled:
             scanWasCancelled = true
             isScanning = false
             scanTask = nil
+            refreshEntitlementExplorer()
         }
     }
 

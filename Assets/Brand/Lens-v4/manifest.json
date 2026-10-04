@@ -1,0 +1,176 @@
+{
+  "identity": "Blue segmented inspection lens with three connected nodes and an amber check",
+  "reference": "docs/branding/Lens-v4/Brand-Sheet.png",
+  "tagline": "INSPECT · VERIFY · COMPARE · EXPORT",
+  "active_app_icon": "Assets/Brand/Lens-v4/EntitlementLens-AppIcon-Dark-1024.png",
+  "readme_logo": "Assets/Brand/Lens-v4/EntitlementLens-Wordmark-Navy.png",
+  "github_upload": "docs/branding/Lens-v4/GitHub-Social-Preview-Upload.png",
+  "packaging": "Apple sips resizing and iconutil ICNS encoding; ICO embeds native PNG frames at 16, 32 and 48 pixels. GitHub upload uses lossless pngcrush compression and has the same decoded pixels as the 1280x640 social master.",
+  "retained_masters": [
+    {
+      "asset": "Assets/Brand/Lens-v4/EntitlementLens-AppIcon-Dark-1024.png",
+      "source": "Assets/Brand/ManPagesStyle-v2/EntitlementLens-AppIcon-Dark-1024.png",
+      "relationship": "byte-identical copy of the matching selected identity"
+    },
+    {
+      "asset": "docs/branding/Lens-v4/GitHub-Social-Preview-1280x640.png",
+      "source": "docs/branding/ManPagesStyle-v2/EntitlementLens-GitHub-Social-Preview-1280x640.png",
+      "relationship": "byte-identical copy of a standalone recomposition of the selected sheet"
+    }
+  ],
+  "generated_assets": [
+    {
+      "asset": "Assets/Brand/Lens-v4/EntitlementLens-Wordmark-Navy.png",
+      "tool": "built-in image_gen",
+      "background": "opaque navy",
+      "relationship": "generated reconstruction of the selected logo lockup",
+      "prompt": "Use case: logo-brand. Asset type: final horizontal logo on opaque midnight-navy background. Reproduce ONLY the top horizontal EntitlementLens lockup from the reference brand sheet, faithfully preserving its lens/node/check symbol, three upper-right scan segments, typography, single-line name and tagline. Single wide 3:1 canvas with an opaque uniform midnight-navy #020D1A field to all four edges. No transparency or cutout. Lens at left, white \"Entitlement\" immediately followed by cyan-blue \"Lens\", exact tagline underneath \"INSPECT · VERIFY · COMPARE · EXPORT\" in pale blue. Smooth clean sharp edges, solid professional vector-like typography, no rough edge noise, no scattered pixels, no text errors. Keep comfortable consistent margins. No app tile, no sheet labels, no mockup, no other elements. This image will be displayed directly as the brand's logo banner."
+    },
+    {
+      "asset": "Assets/Brand/Lens-v4/EntitlementLens-AppIcon-Light-1024.png",
+      "tool": "built-in image_gen",
+      "background": "opaque near-white",
+      "relationship": "generated reconstruction of the selected light icon",
+      "prompt": "Use case: precise-object-edit. Asset type: production light EntitlementLens macOS app icon, exactly square 1024 by 1024 pixels. Image 1 is the user's selected brand sheet and locks the lens identity. Image 2 shows the intended light icon layout; its ragged transparent edges are faulty and must not be copied. Generate one clean polished rounded near-white macOS app tile on a completely OPAQUE near-white square background. Do not remove the background and do not create transparency or alpha cutout. Keep the background flat, perfectly clean near-white. Tile silhouette is a mathematically smooth macOS rounded square with a subtle internal cool-gray bevel and restrained clean soft shading, occupying about 90 percent of the canvas with even margins. Match the chosen original lens exactly: deep navy/cobalt circular magnifier and bright cyan inner ring, the same three separated upper-right scanning arc segments, short down-right cyan handle with navy/cobalt border, exactly three horizontally connected circular nodes with cyan outer nodes and a larger navy center node containing one amber/gold check. Keep proportions, gaps, node positions and check orientation consistent with the reference. Lens is centered and bold, around 72 percent of the tile width, legible at 32 pixels. Crisp smooth vector-like edges, clean solid colors and restrained highlights; no grain, noisy contour, detached speckles, ragged edge, fringe, halo, rough texture or blur. No text, letters, wordmark, labels, app name, surrounding mockup, decorative imagery or other symbols. Single square production icon, straight on. The final background is intentionally opaque near-white everywhere outside the rounded tile."
+    },
+    {
+      "asset": "Assets/Brand/Lens-v4/EntitlementLens-Mark-Navy-1024.png",
+      "tool": "built-in image_gen",
+      "background": "opaque navy",
+      "relationship": "generated reconstruction of the selected lens mark",
+      "prompt": "Use case: precise-object-edit. Asset type: final production standalone EntitlementLens brand mark on an opaque square field, exactly 1024 by 1024 pixels. Image 1 is the user's selected identity sheet; image 2 is the matching isolated lens geometry. Faithfully render only the selected lens mark, centered with balanced margins on a completely OPAQUE uniform midnight-navy square background, matching the dark background of image 1. No rounded tile, no transparent cutout, no background removal. Preserve the original exact identity: deep navy and cobalt circular magnifier with bright cyan inner ring, the same three separated upper-right scanning arc segments and gaps, short cyan magnifier handle angled down-right with navy/cobalt border, exactly three horizontal connected circular nodes, two smaller cyan outer nodes and a larger navy center node holding one clear amber/gold check. Match node sizes, circle proportions, handle direction, arc geometry, palette and check orientation from the original selected sheet. Bold sharp mark occupying about 80 percent of square with even midnight-navy padding, polished controlled edge highlights. The interior of the lens shows the uniform midnight-navy field. Smooth clean vector-like curves, restrained gradients, no grain, stray dots, speckles, particles, fringe, noisy halo or fuzzy glow. Do not include any letters, wordmark, app name, text, caption, extra decorations, binary digits, network background, rounded square container or other symbols. Single faithful production symbol on one plain square midnight-navy field; intentionally opaque."
+    }
+  ],
+  "files": [
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens-AppIcon-Dark-1024.png",
+      "sha256": "62f35c7835fd7a8953950b315be96c20f3a8e172ed9f95c40588cdff180cdab1",
+      "bytes": 967488
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens-AppIcon-Light-1024.png",
+      "sha256": "d2987d4c9b1b12b49952c041723b554cbbc8e3622e3f6a46a1c01de0f4da1ab2",
+      "bytes": 982547
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens-Mark-Navy-1024.png",
+      "sha256": "8605ec5bf1e04dd5e730871c78fbec9fc38ded5463fec8978905cddf0491b17e",
+      "bytes": 1002958
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens-Wordmark-Navy.png",
+      "sha256": "d403f51c106b7d86d7c8b089e97443b07d254cdb81186caea3a5ae005374dba3",
+      "bytes": 967112
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.icns",
+      "sha256": "6aeab7bc6174492f697880781ac2a7d838541c95ecc9d47d839fdf4b557cdb2e",
+      "bytes": 1676601
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_128x128.png",
+      "sha256": "a303516c621d79c475acfb7b712f53ff2fb7637a260d8ef60b53f24dced8fa57",
+      "bytes": 23341
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_128x128@2x.png",
+      "sha256": "84b00b2512ead8ffec381af82945a0e0489e858f5b056973795c05e96ea9a578",
+      "bytes": 75894
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_16x16.png",
+      "sha256": "d34bfc8209bb6bb6d30b26f729613e1a05abe10d7194fffef62a35edf9aa2ca7",
+      "bytes": 1350
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_16x16@2x.png",
+      "sha256": "98866570802f12ecc54d475e726057635c91440b337a8ade431ef6c3ed39be53",
+      "bytes": 2690
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_256x256.png",
+      "sha256": "84b00b2512ead8ffec381af82945a0e0489e858f5b056973795c05e96ea9a578",
+      "bytes": 75894
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_256x256@2x.png",
+      "sha256": "671a4702df296db72d1a42d7ebd75d6fd8ef4323053c02d35be3319d0d590ed4",
+      "bytes": 262043
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_32x32.png",
+      "sha256": "98866570802f12ecc54d475e726057635c91440b337a8ade431ef6c3ed39be53",
+      "bytes": 2690
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_32x32@2x.png",
+      "sha256": "1530f06fffc32c68cf4bbf9ec0a14fca2838ed506e7cd4ebedc96282f5edd95f",
+      "bytes": 7420
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_512x512.png",
+      "sha256": "671a4702df296db72d1a42d7ebd75d6fd8ef4323053c02d35be3319d0d590ed4",
+      "bytes": 262043
+    },
+    {
+      "path": "Assets/Brand/Lens-v4/EntitlementLens.iconset/icon_512x512@2x.png",
+      "sha256": "62f35c7835fd7a8953950b315be96c20f3a8e172ed9f95c40588cdff180cdab1",
+      "bytes": 967488
+    },
+    {
+      "path": "docs/branding/Lens-v4/Brand-Sheet.png",
+      "sha256": "a8b7a286c9b51971ac505eccc6d04497ca82d735eaeac3d987016559c9ff5c5f",
+      "bytes": 1775055
+    },
+    {
+      "path": "docs/branding/Lens-v4/GitHub-Social-Preview-1280x640.png",
+      "sha256": "bf70bd0a07c81d6f228eb327d4f4e1814dfd8f25ee63b0b2fdd826b9ed73e642",
+      "bytes": 1076462
+    },
+    {
+      "path": "docs/branding/Lens-v4/GitHub-Social-Preview-Upload.png",
+      "sha256": "bb5b644d66a9ad6b23faa60878b784821f09b99319379bc55a0dc143c7bc57b9",
+      "bytes": 864818
+    },
+    {
+      "path": "website/icons/lens-v4/apple-touch-icon.png",
+      "sha256": "84743e437380ea34b01726ecb9cab5c19e05369379bb51ada2a6b55004ac0de3",
+      "bytes": 41592
+    },
+    {
+      "path": "website/icons/lens-v4/favicon-16.png",
+      "sha256": "d34bfc8209bb6bb6d30b26f729613e1a05abe10d7194fffef62a35edf9aa2ca7",
+      "bytes": 1350
+    },
+    {
+      "path": "website/icons/lens-v4/favicon-32.png",
+      "sha256": "98866570802f12ecc54d475e726057635c91440b337a8ade431ef6c3ed39be53",
+      "bytes": 2690
+    },
+    {
+      "path": "website/icons/lens-v4/favicon-48.png",
+      "sha256": "035074cc49a91d48b55292a5d9b8712253f7aadce193fed86ea087e2bb118d68",
+      "bytes": 4669
+    },
+    {
+      "path": "website/icons/lens-v4/favicon-64.png",
+      "sha256": "1530f06fffc32c68cf4bbf9ec0a14fca2838ed506e7cd4ebedc96282f5edd95f",
+      "bytes": 7420
+    },
+    {
+      "path": "website/icons/lens-v4/favicon.ico",
+      "sha256": "63be66f776be3ae9a48167e997ed3c2ac035fc65b0c6f2355508626e589b314b",
+      "bytes": 8763
+    },
+    {
+      "path": "website/icons/lens-v4/icon-192.png",
+      "sha256": "4e24c81a1cde53ba9e2d1e259b361142f9d234011d7c11f23234f6e0828a5113",
+      "bytes": 46361
+    },
+    {
+      "path": "website/icons/lens-v4/icon-512.png",
+      "sha256": "671a4702df296db72d1a42d7ebd75d6fd8ef4323053c02d35be3319d0d590ed4",
+      "bytes": 262043
+    }
+  ]
+}

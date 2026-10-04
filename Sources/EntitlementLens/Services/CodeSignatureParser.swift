@@ -12,6 +12,13 @@ enum CodeSignatureParser {
     private static let derEntitlementsMagic: UInt32 = 0xFADE_7172
     private static let xmlEntitlementsSlot: UInt32 = 5
     private static let derEntitlementsSlot: UInt32 = 7
+    private static let maximumCodeSignatureBytes: UInt64 = 32 * 1_024 * 1_024
+
+    private struct EntitlementSlotRecord {
+        let type: UInt32
+        let magic: UInt32
+        let range: MachOByteRange
+    }
 
     static func inspect(
         _ url: URL,
@@ -20,24 +27,60 @@ enum CodeSignatureParser {
     ) -> CodeSignatureInspection {
         var slots: [CodeSignatureEntitlementSlot] = []
         var warnings: [String] = []
-        for slice in slices {
-            guard let offset = slice.codeSignatureOffset, let size = slice.codeSignatureSize else {
-                continue
+        guard slices.contains(where: { $0.codeSignatureOffset != nil || $0.codeSignatureSize != nil }) else {
+            return CodeSignatureInspection(slots: slots, warnings: warnings)
+        }
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forReadingFrom: url)
+        } catch {
+            return CodeSignatureInspection(
+                slots: [], warnings: ["Could not open code-signature data in \(url.path): \(error.localizedDescription)"]
+            )
+        }
+        do {
+            let fileSize = try handle.seekToEnd()
+            for slice in slices {
+                if slice.codeSignatureOffset == nil, slice.codeSignatureSize == nil {
+                    continue
+                }
+                do {
+                    guard let offset = slice.codeSignatureOffset, let size = slice.codeSignatureSize else {
+                        throw CodeSignatureParsingError.incompleteSignatureLocation(slice.architecture)
+                    }
+                    _ = try MachOByteRange(
+                        offset: slice.fileOffset, length: slice.fileSize, containerLength: fileSize,
+                        path: url.path, context: .fatSlice
+                    )
+                    guard offset >= slice.fileOffset else {
+                        throw CodeSignatureParsingError.signatureBeforeSlice(offset, slice.fileOffset)
+                    }
+                    _ = try MachOByteRange(
+                        offset: offset - slice.fileOffset, length: size, containerLength: slice.fileSize,
+                        path: url.path, context: .codeSignature
+                    )
+                    let data = try read(handle: handle, offset: offset, size: size, fileSize: fileSize, path: url.path)
+                    let architectureEntries = architectureEntitlements
+                        .first { $0.architecture == slice.architecture }?
+                        .entitlements ?? []
+                    slots.append(contentsOf: try parseSuperBlob(
+                        data,
+                        fileOffset: offset,
+                        path: url.path,
+                        architecture: slice.architecture,
+                        architectureEntitlements: architectureEntries
+                    ))
+                } catch {
+                    warnings.append("Code-signature parsing failed for \(slice.architecture) in \(url.path): \(error.localizedDescription)")
+                }
             }
-            do {
-                let data = try read(url: url, offset: offset, size: size)
-                let architectureEntries = architectureEntitlements
-                    .first { $0.architecture == slice.architecture }?
-                    .entitlements ?? []
-                slots.append(contentsOf: try parseSuperBlob(
-                    data,
-                    fileOffset: offset,
-                    architecture: slice.architecture,
-                    architectureEntitlements: architectureEntries
-                ))
-            } catch {
-                warnings.append("Code-signature parsing failed for \(slice.architecture) at offset \(offset): \(error.localizedDescription)")
-            }
+        } catch {
+            warnings.append("Could not determine the code-signature file size in \(url.path): \(error.localizedDescription)")
+        }
+        do {
+            try handle.close()
+        } catch {
+            warnings.append("Could not close the code-signature file \(url.path): \(error.localizedDescription)")
         }
         return CodeSignatureInspection(slots: slots, warnings: warnings)
     }
@@ -45,6 +88,7 @@ enum CodeSignatureParser {
     private static func parseSuperBlob(
         _ data: Data,
         fileOffset: UInt64,
+        path: String,
         architecture: String,
         architectureEntitlements: [EntitlementEntry]
     ) throws -> [CodeSignatureEntitlementSlot] {
@@ -59,55 +103,84 @@ enum CodeSignatureParser {
         guard declaredLength >= 12, declaredLength <= data.count else {
             throw CodeSignatureParsingError.invalidLength(declaredLength, data.count)
         }
-        guard count <= 4_096, 12 + count * 8 <= declaredLength else {
+        guard count <= 4_096, count <= (declaredLength - 12) / 8 else {
             throw CodeSignatureParsingError.invalidSlotCount(count)
         }
+        let indexRange = try MachOByteRange(
+            offset: 12, length: UInt64(count) * 8, containerLength: UInt64(declaredLength),
+            path: path, context: .superBlobIndex
+        )
 
-        var results: [CodeSignatureEntitlementSlot] = []
+        var records: [EntitlementSlotRecord] = []
         for index in 0..<count {
             let indexOffset = 12 + index * 8
             let slotType = try uint32(data, at: indexOffset)
+            let blobOffset = integer(try uint32(data, at: indexOffset + 4))
+            if blobOffset == 0 {
+                guard slotType != xmlEntitlementsSlot, slotType != derEntitlementsSlot else {
+                    throw CodeSignatureParsingError.nullEntitlementSlot(slotType)
+                }
+                continue
+            }
+            guard UInt64(blobOffset) >= indexRange.end else {
+                throw CodeSignatureParsingError.invalidSlotOffset(blobOffset, Int(indexRange.end))
+            }
+            _ = try MachOByteRange(
+                offset: UInt64(blobOffset), length: 8, containerLength: UInt64(declaredLength),
+                path: path, context: .signatureSlotHeader
+            )
+            let magic = try uint32(data, at: blobOffset)
+            let blobLength = integer(try uint32(data, at: blobOffset + 4))
+            guard blobLength >= 8 else {
+                throw CodeSignatureParsingError.invalidLength(blobLength, declaredLength - blobOffset)
+            }
+            let blobRange = try MachOByteRange(
+                offset: UInt64(blobOffset), length: UInt64(blobLength), containerLength: UInt64(declaredLength),
+                path: path, context: .signatureSlot
+            )
             guard slotType == xmlEntitlementsSlot || slotType == derEntitlementsSlot else {
                 continue
             }
-            let blobOffset = integer(try uint32(data, at: indexOffset + 4))
-            guard blobOffset + 8 <= declaredLength else {
-                throw CodeSignatureParsingError.invalidSlotOffset(blobOffset)
+            guard !records.contains(where: { $0.type == slotType }) else {
+                throw CodeSignatureParsingError.duplicateEntitlementSlot(slotType)
             }
-            let magic = try uint32(data, at: blobOffset)
-            let blobLength = integer(try uint32(data, at: blobOffset + 4))
-            guard blobLength >= 8, blobOffset + blobLength <= declaredLength else {
-                throw CodeSignatureParsingError.invalidLength(blobLength, declaredLength - blobOffset)
+            guard !records.contains(where: { $0.range.offset < blobRange.end && blobRange.offset < $0.range.end }) else {
+                throw CodeSignatureParsingError.overlappingEntitlementSlot(slotType)
             }
-            let blob = Data(data[blobOffset..<(blobOffset + blobLength)])
+            records.append(EntitlementSlotRecord(type: slotType, magic: magic, range: blobRange))
+        }
+
+        var results: [CodeSignatureEntitlementSlot] = []
+        for record in records {
+            let blob = Data(data[Int(record.range.offset)..<Int(record.range.end)])
             let payload = Data(blob.dropFirst(8))
-            let absoluteOffset = fileOffset + UInt64(blobOffset)
-            if slotType == xmlEntitlementsSlot {
-                guard magic == xmlEntitlementsMagic else {
-                    throw CodeSignatureParsingError.invalidMagic(magic)
+            let absoluteOffset = fileOffset + record.range.offset
+            if record.type == xmlEntitlementsSlot {
+                guard record.magic == xmlEntitlementsMagic else {
+                    throw CodeSignatureParsingError.invalidMagic(record.magic)
                 }
                 let decoded = try decodeXML(payload)
                 results.append(CodeSignatureEntitlementSlot(
                     architecture: architecture,
-                    slotType: slotType,
+                    slotType: record.type,
                     format: .xml,
                     fileOffset: absoluteOffset,
-                    byteCount: blobLength,
+                    byteCount: Int(record.range.length),
                     sha256: sha256(blob),
                     decodedEntitlements: decoded,
                     decoderSource: "Mach-O SuperBlob XML slot",
                     warning: nil
                 ))
             } else {
-                guard magic == derEntitlementsMagic else {
-                    throw CodeSignatureParsingError.invalidMagic(magic)
+                guard record.magic == derEntitlementsMagic else {
+                    throw CodeSignatureParsingError.invalidMagic(record.magic)
                 }
                 results.append(CodeSignatureEntitlementSlot(
                     architecture: architecture,
-                    slotType: slotType,
+                    slotType: record.type,
                     format: .der,
                     fileOffset: absoluteOffset,
-                    byteCount: blobLength,
+                    byteCount: Int(record.range.length),
                     sha256: sha256(blob),
                     decodedEntitlements: architectureEntitlements,
                     decoderSource: "Bounded Mach-O DER slot; semantic dictionary from Security.framework kSecCodeInfoEntitlementsDict",
@@ -130,18 +203,20 @@ enum CodeSignatureParser {
             .sorted { $0.key < $1.key }
     }
 
-    private static func read(url: URL, offset: UInt64, size: UInt64) throws -> Data {
-        guard size <= UInt64(Int.max) else {
-            throw CodeSignatureParsingError.excessiveSize(size)
+    private static func read(
+        handle: FileHandle,
+        offset: UInt64,
+        size: UInt64,
+        fileSize: UInt64,
+        path: String
+    ) throws -> Data {
+        guard size <= maximumCodeSignatureBytes else {
+            throw CodeSignatureParsingError.excessiveSize(size, maximumCodeSignatureBytes)
         }
-        let handle = try FileHandle(forReadingFrom: url)
-        defer {
-            do {
-                try handle.close()
-            } catch {
-                // A close error cannot invalidate bytes already read successfully.
-            }
-        }
+        _ = try MachOByteRange(
+            offset: offset, length: size, containerLength: fileSize,
+            path: path, context: .codeSignature
+        )
         try handle.seek(toOffset: offset)
         let data = try handle.read(upToCount: Int(size)) ?? Data()
         guard data.count == Int(size) else {
@@ -151,7 +226,7 @@ enum CodeSignatureParser {
     }
 
     private static func uint32(_ data: Data, at offset: Int) throws -> UInt32 {
-        guard offset >= 0, offset + 4 <= data.count else {
+        guard offset >= 0, offset <= data.count, 4 <= data.count - offset else {
             throw CodeSignatureParsingError.truncated("32-bit field at \(offset)")
         }
         return data[offset..<(offset + 4)].reduce(0) { ($0 << 8) | UInt32($1) }
@@ -171,8 +246,13 @@ enum CodeSignatureParsingError: LocalizedError {
     case invalidMagic(UInt32)
     case invalidLength(Int, Int)
     case invalidSlotCount(Int)
-    case invalidSlotOffset(Int)
-    case excessiveSize(UInt64)
+    case invalidSlotOffset(Int, Int)
+    case excessiveSize(UInt64, UInt64)
+    case incompleteSignatureLocation(String)
+    case signatureBeforeSlice(UInt64, UInt64)
+    case duplicateEntitlementSlot(UInt32)
+    case overlappingEntitlementSlot(UInt32)
+    case nullEntitlementSlot(UInt32)
     case nonDictionaryXML
 
     var errorDescription: String? {
@@ -181,8 +261,13 @@ enum CodeSignatureParsingError: LocalizedError {
         case let .invalidMagic(value): "Unexpected code-signature magic 0x\(String(value, radix: 16, uppercase: true))."
         case let .invalidLength(length, available): "A code-signature blob declares \(length) bytes but only \(available) are available."
         case let .invalidSlotCount(count): "The code-signature SuperBlob declares an invalid slot count of \(count)."
-        case let .invalidSlotOffset(offset): "A code-signature slot points outside the SuperBlob at offset \(offset)."
-        case let .excessiveSize(size): "The code-signature region is too large to inspect: \(size) bytes."
+        case let .invalidSlotOffset(offset, indexEnd): "A code-signature slot points to offset \(offset), before the SuperBlob index ends at \(indexEnd)."
+        case let .excessiveSize(size, maximum): "The code-signature region declares \(size) bytes, exceeding the application's \(maximum)-byte inspection limit."
+        case let .incompleteSignatureLocation(architecture): "The \(architecture) slice supplies only one of the code-signature offset and size."
+        case let .signatureBeforeSlice(offset, sliceOffset): "The code signature starts at file offset \(offset), before its slice starts at \(sliceOffset)."
+        case let .duplicateEntitlementSlot(type): "The code-signature SuperBlob contains more than one entitlement slot of type \(type)."
+        case let .overlappingEntitlementSlot(type): "Entitlement slot \(type) overlaps another entitlement slot in the code-signature SuperBlob."
+        case let .nullEntitlementSlot(type): "Entitlement slot \(type) has a null offset and supplies no entitlement blob."
         case .nonDictionaryXML: "The XML entitlement slot did not contain a dictionary."
         }
     }

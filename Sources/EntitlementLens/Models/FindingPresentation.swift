@@ -35,9 +35,10 @@ func findingOutcome(_ finding: ScanFinding) -> FindingOutcome {
 
 func indexFinding(_ finding: ScanFinding) throws -> IndexedFinding {
     try Task.checkCancellation()
+    let groups = finding.signing.map(entitlementSourceGroups) ?? []
     var filters: Set<ResultFilter> = [.all]
-    if finding.entitlementCount > 0 { filters.insert(.entitlements) }
-    if finding.privateEntitlementCount > 0 { filters.insert(.privateEntitlements) }
+    if !distinctEntitlementKeys(groups).isEmpty { filters.insert(.entitlements) }
+    if !distinctPrivateEntitlementKeys(groups).isEmpty { filters.insert(.privateEntitlements) }
     if !finding.embeddedObjects.isEmpty { filters.insert(.embeddedObjects) }
     if !finding.runningBoardPolicies.isEmpty { filters.insert(.runningBoard) }
     if finding.hasSigningProblem { filters.insert(.signingProblems) }
@@ -46,10 +47,14 @@ func indexFinding(_ finding: ScanFinding) throws -> IndexedFinding {
                  finding.signing?.identifier ?? "", finding.signing?.teamIdentifier ?? "",
                  finding.signing?.uniqueCDHash ?? "", finding.installedCounterpart?.path ?? "",
                  finding.installedCounterpart?.sha256 ?? "", outcome.rawValue]
-    for entry in finding.signing?.entitlements ?? [] {
+    for group in groups {
         try Task.checkCancellation()
-        terms.append(entry.key)
-        terms.append(entry.value.displayValue)
+        if case let .architecture(architecture) = group.source { terms.append(architecture) }
+        for entry in group.entitlements {
+            try Task.checkCancellation()
+            terms.append(entry.key)
+            terms.append(entry.value.displayValue)
+        }
     }
     for object in finding.embeddedObjects {
         try Task.checkCancellation()
