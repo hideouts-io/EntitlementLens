@@ -8,12 +8,31 @@ struct ContentView: View {
             ScanSidebar(store: store)
                 .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 300)
         } content: {
-            ResultsView(store: store)
+            Group {
+                switch store.browserMode {
+                case .files: ResultsView(store: store)
+                case .entitlements: EntitlementExplorerView(store: store)
+                }
+            }
                 .navigationSplitViewColumnWidth(min: 390, ideal: 470)
         } detail: {
-            BinaryDetailView(finding: store.selectedFinding, detailAppeared: store.detailAppeared)
+            BinaryDetailView(
+                finding: store.selectedFinding,
+                highlightedKey: store.browserMode == .entitlements ? store.selectedEntitlementKey : nil,
+                detailAppeared: store.detailAppeared
+            )
         }
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Browse", selection: $store.browserMode) {
+                    Text("Files").tag(EntitlementBrowserMode.files)
+                        .accessibilityIdentifier("browser.mode.files")
+                    Text("By Entitlement").tag(EntitlementBrowserMode.entitlements)
+                        .accessibilityIdentifier("browser.mode.entitlements")
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("browser.mode")
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     store.chooseFolderAndScan()

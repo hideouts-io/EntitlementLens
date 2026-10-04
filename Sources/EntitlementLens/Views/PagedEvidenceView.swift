@@ -55,10 +55,16 @@ struct PagedTextView: View {
 
 struct EntitlementEntriesView: View {
     let entries: [EntitlementEntry]
+    let highlightedKey: String?
     @State private var expandedKey: String?
 
+    private var focusedEntries: [EntitlementEntry] {
+        guard let highlightedKey else { return entries }
+        return entries.filter { $0.key == highlightedKey } + entries.filter { $0.key != highlightedKey }
+    }
+
     var body: some View {
-        PagedEvidenceView(items: entries) { entry in
+        PagedEvidenceView(items: focusedEntries) { entry in
             DisclosureGroup(isExpanded: Binding(
                 get: { expandedKey == entry.key },
                 set: { expandedKey = $0 ? entry.key : nil }
@@ -66,8 +72,11 @@ struct EntitlementEntriesView: View {
                 if expandedKey == entry.key { EntitlementValueView(value: entry.value) }
             } label: {
                 Text(entry.key).font(.body.monospaced()).textSelection(.enabled)
+                    .foregroundStyle(entry.key == highlightedKey ? Color.accentColor : Color.primary)
             }
         }
+        .id(highlightedKey)
+        .onChange(of: highlightedKey, initial: true) { _, key in expandedKey = key }
     }
 }
 
@@ -82,7 +91,7 @@ struct EntitlementValueView: View {
             case .array, .dictionary:
                 if let children {
                     if children.isEmpty { Text("Empty collection").foregroundStyle(.secondary) }
-                    else { EntitlementEntriesView(entries: children) }
+                    else { EntitlementEntriesView(entries: children, highlightedKey: nil) }
                 } else if let failure { Text(failure).foregroundStyle(.red) }
                 else { ProgressView("Preparing values…") }
             case let .string(text): PagedTextView(text: text)

@@ -3,6 +3,7 @@ import SwiftUI
 struct ArchitectureEntitlementsView: View {
     let architectures: [ArchitectureEntitlements]
     let slots: [CodeSignatureEntitlementSlot]
+    let highlightedKey: String?
 
     var body: some View {
         if !architectures.isEmpty {
@@ -20,7 +21,10 @@ struct ArchitectureEntitlementsView: View {
                             Text(architecture.uniqueCDHash.map { "CDHash \($0)" } ?? "CDHash not reported")
                                 .font(.caption.monospaced())
                                 .textSelection(.enabled)
-                            EntitlementEntriesView(entries: architecture.entitlements)
+                            if let detail = architecture.status.detail {
+                                PagedTextView(text: detail)
+                            }
+                            EntitlementEntriesView(entries: architecture.entitlements, highlightedKey: highlightedKey)
                             ForEach(architecture.warnings, id: \.self) { warning in
                                 Label(warning, systemImage: "exclamationmark.triangle")
                                     .foregroundStyle(.orange)
