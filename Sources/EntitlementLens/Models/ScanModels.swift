@@ -151,6 +151,8 @@ struct ArchitectureEntitlements: Codable, Hashable, Identifiable, Sendable {
     let uniqueCDHash: String?
     let entitlements: [EntitlementEntry]
     let warnings: [String]
+    /// Missing in older exports; absence means collection completeness was not recorded.
+    let collectionState: EntitlementCollectionState?
 
     var id: String { architecture }
 }
@@ -225,6 +227,8 @@ struct InstalledCounterpartComparison: Codable, Hashable, Sendable {
     let machOSlices: [MachOSlice]
     let entitlementKeys: [String]
     let differences: [String]
+    /// Older exports retain their original summary without implying a scoped comparison occurred.
+    let entitlementComparison: EntitlementComparison?
 }
 
 struct EntitlementEntry: Codable, Hashable, Identifiable, Sendable {
@@ -291,6 +295,8 @@ struct SigningDetails: Codable, Hashable, Sendable {
     let architectureEntitlements: [ArchitectureEntitlements]
     let entitlementSlots: [CodeSignatureEntitlementSlot]
     let extractionWarnings: [String]
+    /// Describes only the standard dictionary; architecture dictionaries carry their own state.
+    let entitlementCollectionState: EntitlementCollectionState?
 }
 
 enum RunningBoardConfidence: String, Codable, Hashable, Sendable {

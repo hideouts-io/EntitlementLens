@@ -67,7 +67,8 @@ enum EntitlementExtractor {
             runtimeAuthorization: runtimeAuthorizationAssessment(),
             architectureEntitlements: architectureResult.entitlements,
             entitlementSlots: slotInspection.slots,
-            extractionWarnings: decodeWarnings + architectureResult.warnings + slotInspection.warnings
+            extractionWarnings: decodeWarnings + architectureResult.warnings + slotInspection.warnings,
+            entitlementCollectionState: collectionState(decoded: decoded.state, status: identifierStatus, slices: architectureResult.slices)
         )
     }
 
@@ -97,7 +98,8 @@ enum EntitlementExtractor {
             runtimeAuthorization: runtimeAuthorizationAssessment(),
             architectureEntitlements: [],
             entitlementSlots: [],
-            extractionWarnings: []
+            extractionWarnings: [],
+            entitlementCollectionState: .unavailable(reason: "Signing information could not be read: OSStatus \(status): \(OSStatusMessage.describe(status))")
         )
     }
 
@@ -113,7 +115,7 @@ enum EntitlementExtractor {
         }
         var warnings: [String] = []
         let results = slices.map { slice in
-            inspectArchitecture(codeURL: codeURL, architecture: slice.architecture)
+            inspectArchitecture(codeURL: codeURL, slice: slice)
         }
         for result in results {
             warnings.append(contentsOf: result.warnings.map { "\(result.architecture): \($0)" })
@@ -121,7 +123,8 @@ enum EntitlementExtractor {
         return (results, slices, warnings)
     }
 
-    private static func inspectArchitecture(codeURL: URL, architecture: String) -> ArchitectureEntitlements {
+    private static func inspectArchitecture(codeURL: URL, slice: MachOSlice) -> ArchitectureEntitlements {
+        let architecture = slice.architecture
         let attributes = [kSecCodeAttributeArchitecture as String: architecture] as CFDictionary
         var staticCode: SecStaticCode?
         let createStatus = SecStaticCodeCreateWithPathAndAttributes(
@@ -136,7 +139,8 @@ enum EntitlementExtractor {
                 status: .unavailable(code: createStatus, message: OSStatusMessage.describe(createStatus)),
                 uniqueCDHash: nil,
                 entitlements: [],
-                warnings: ["SecStaticCodeCreateWithPathAndAttributes failed with OSStatus \(createStatus): \(OSStatusMessage.describe(createStatus))"]
+                warnings: ["SecStaticCodeCreateWithPathAndAttributes failed with OSStatus \(createStatus): \(OSStatusMessage.describe(createStatus))"],
+                collectionState: .unavailable(reason: "Could not create the architecture-specific code object.")
             )
         }
         let validityStatus = SecStaticCodeCheckValidity(
@@ -156,19 +160,34 @@ enum EntitlementExtractor {
                 status: .unavailable(code: informationStatus, message: OSStatusMessage.describe(informationStatus)),
                 uniqueCDHash: nil,
                 entitlements: [],
-                warnings: ["SecCodeCopySigningInformation failed with OSStatus \(informationStatus): \(OSStatusMessage.describe(informationStatus))"]
+                warnings: ["SecCodeCopySigningInformation failed with OSStatus \(informationStatus): \(OSStatusMessage.describe(informationStatus))"],
+                collectionState: .unavailable(reason: "Could not read the architecture-specific signing information.")
             )
         }
         let information = rawInformation as NSDictionary
         let identifier = information[kSecCodeInfoIdentifier as String] as? String
         let decoded = decodeEntitlements(information[kSecCodeInfoEntitlementsDict as String])
+        let status = signatureStatus(identifier: identifier, validityStatus: validityStatus)
         return ArchitectureEntitlements(
             architecture: architecture,
-            status: signatureStatus(identifier: identifier, validityStatus: validityStatus),
+            status: status,
             uniqueCDHash: hexString(information[kSecCodeInfoUnique as String] as? Data),
             entitlements: decoded.entries,
-            warnings: decoded.warning.map { [$0] } ?? []
+            warnings: decoded.warning.map { [$0] } ?? [],
+            collectionState: collectionState(decoded: decoded.state, status: status, slices: [slice])
         )
+    }
+
+    /// Security.framework can describe an unrecognized signature container as unsigned.
+    /// A declared nonempty signature region prevents that outcome from establishing empty entitlements.
+    private static func collectionState(
+        decoded: EntitlementCollectionState, status: SignatureStatus, slices: [MachOSlice]
+    ) -> EntitlementCollectionState {
+        if case .unavailable = decoded { return decoded }
+        if status == .unsigned, slices.contains(where: { $0.codeSignatureOffset != nil && ($0.codeSignatureSize ?? 0) > 0 }) {
+            return .unavailable(reason: "Mach-O declares a code-signature region, but Security.framework did not recognize its signing identity. Empty returned entitlements do not establish absence.")
+        }
+        return decoded
     }
 
     private static func signatureStatus(identifier: String?, validityStatus: OSStatus) -> SignatureStatus {
@@ -221,20 +240,22 @@ enum EntitlementExtractor {
         )
     }
 
-    private static func decodeEntitlements(_ rawValue: Any?) -> (entries: [EntitlementEntry], warning: String?) {
+    private static func decodeEntitlements(_ rawValue: Any?) -> (entries: [EntitlementEntry], warning: String?, state: EntitlementCollectionState) {
         guard let rawValue else {
-            return ([], nil)
+            return ([], nil, .complete)
         }
         guard let dictionary = rawValue as? [String: Any] else {
-            return ([], "kSecCodeInfoEntitlementsDict was present but was not a string-keyed dictionary.")
+            let warning = "kSecCodeInfoEntitlementsDict was present but was not a string-keyed dictionary."
+            return ([], warning, .unavailable(reason: warning))
         }
         do {
             let entries = try dictionary
                 .map { EntitlementEntry(key: $0.key, value: try PropertyListValueDecoder.decode($0.value)) }
                 .sorted { $0.key < $1.key }
-            return (entries, nil)
+            return (entries, nil, .complete)
         } catch {
-            return ([], "Security.framework returned entitlements that could not be decoded: \(error.localizedDescription)")
+            let warning = "Security.framework returned entitlements that could not be decoded: \(error.localizedDescription)"
+            return ([], warning, .unavailable(reason: warning))
         }
     }
 

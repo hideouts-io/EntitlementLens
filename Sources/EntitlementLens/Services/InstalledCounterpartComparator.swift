@@ -22,15 +22,35 @@ enum InstalledCounterpartComparator {
             sourceURL: counterpartURL,
             analyzedURL: analyzedURL
         )
-        let differences = comparisonDifferences(
+        return try compareEvidence(
             sourceProvenance: sourceProvenance,
             sourceSigning: sourceSigning,
+            counterpartPath: counterpartURL.path,
             counterpartProvenance: counterpartProvenance,
             counterpartSigning: counterpartSigning
         )
+    }
+
+    /// Pure comparison of already collected artifacts; discovery and disk reads remain in compare.
+    static func compareEvidence(
+        sourceProvenance: ArtifactProvenance,
+        sourceSigning: SigningDetails,
+        counterpartPath: String,
+        counterpartProvenance: ArtifactProvenance,
+        counterpartSigning: SigningDetails
+    ) throws -> InstalledCounterpartComparison {
+        let entitlementComparison = try compareEntitlements(
+            sourceSigning: sourceSigning, sourceSlices: sourceProvenance.machOSlices,
+            installedSigning: counterpartSigning, installedSlices: counterpartProvenance.machOSlices
+        )
+        let differences = comparisonDifferences(
+            sourceProvenance: sourceProvenance, sourceSigning: sourceSigning,
+            counterpartProvenance: counterpartProvenance, counterpartSigning: counterpartSigning,
+            entitlementComparison: entitlementComparison
+        )
 
         return InstalledCounterpartComparison(
-            path: counterpartURL.path,
+            path: counterpartPath,
             analyzedPath: counterpartProvenance.analyzedPath,
             relationship: sourceProvenance.sha256 == counterpartProvenance.sha256 ? .identical : .different,
             sha256: counterpartProvenance.sha256,
@@ -39,8 +59,9 @@ enum InstalledCounterpartComparator {
             platformIdentifier: counterpartSigning.platformIdentifier,
             sourceOperatingSystem: counterpartProvenance.sourceOperatingSystem,
             machOSlices: counterpartProvenance.machOSlices,
-            entitlementKeys: counterpartSigning.entitlements.map(\.key),
-            differences: differences
+            entitlementKeys: distinctEntitlementKeys(entitlementSourceGroups(counterpartSigning)).sorted(),
+            differences: differences,
+            entitlementComparison: entitlementComparison
         )
     }
 
@@ -58,7 +79,8 @@ enum InstalledCounterpartComparator {
         sourceProvenance: ArtifactProvenance,
         sourceSigning: SigningDetails,
         counterpartProvenance: ArtifactProvenance,
-        counterpartSigning: SigningDetails
+        counterpartSigning: SigningDetails,
+        entitlementComparison: EntitlementComparison
     ) -> [String] {
         var differences: [String] = []
         if sourceProvenance.sha256 != counterpartProvenance.sha256 {
@@ -73,11 +95,14 @@ enum InstalledCounterpartComparator {
         if sliceIdentity(sourceProvenance.machOSlices) != sliceIdentity(counterpartProvenance.machOSlices) {
             differences.append("Mach-O architectures or build targets differ.")
         }
-        if sourceSigning.entitlements.map(\.key) != counterpartSigning.entitlements.map(\.key) {
-            differences.append("Entitlement keys differ.")
+        if sourceSigning.status != counterpartSigning.status {
+            differences.append("Signature integrity differs.")
         }
-        if sourceSigning.entitlements != counterpartSigning.entitlements {
-            differences.append("Entitlement values differ.")
+        if entitlementComparison.hasDifferences {
+            differences.append("Declared entitlements or architecture coverage differ. \(entitlementComparison.summary)")
+        }
+        if !entitlementComparison.isComplete {
+            differences.append("Entitlement comparison is incomplete. \(entitlementComparison.summary)")
         }
         return differences
     }
@@ -91,6 +116,6 @@ enum InstalledCounterpartComparator {
                 slice.minimumOSVersion ?? "",
                 slice.sdkVersion ?? ""
             ].joined(separator: "|")
-        }
+        }.sorted()
     }
 }
