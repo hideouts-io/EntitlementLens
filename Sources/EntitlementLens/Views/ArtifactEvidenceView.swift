@@ -72,7 +72,7 @@ struct ArtifactEvidenceView: View {
                 HStack(spacing: 8) {
                     Image(systemName: counterpart.relationship == .identical ? "equal.circle.fill" : "arrow.triangle.branch")
                         .foregroundStyle(counterpart.relationship == .identical ? .green : .orange)
-                    Text(counterpart.relationship.title)
+                    Text("File bytes: \(counterpart.relationship.title)")
                         .font(.headline)
                 }
                 Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 9) {
@@ -85,7 +85,7 @@ struct ArtifactEvidenceView: View {
                     metadataRow("Installed source OS", counterpart.sourceOperatingSystem?.displayValue ?? "Not discoverable")
                 }
                 if counterpart.differences.isEmpty {
-                    Text("No differences were found in the compared hashes, signing metadata, build targets, or entitlements.")
+                    Text("No differences were found in the compared file hashes, signing metadata, and build targets. See entitlement collection results below.")
                         .foregroundStyle(.secondary)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
@@ -95,12 +95,19 @@ struct ArtifactEvidenceView: View {
                         }
                     }
                 }
+                if let comparison = counterpart.entitlementComparison {
+                    EntitlementComparisonView(comparison: comparison)
+                } else {
+                    Text("Architecture-aware entitlement comparison was not recorded in this evidence.")
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
             Label("Installed Counterpart", systemImage: "arrow.left.arrow.right.square")
         }
+        .accessibilityIdentifier("counterpart.section")
     }
 
     private var volumeValue: String {

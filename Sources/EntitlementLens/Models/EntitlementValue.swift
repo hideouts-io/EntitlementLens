@@ -11,6 +11,19 @@ indirect enum EntitlementValue: Codable, Hashable, Sendable {
     case array([EntitlementValue])
     case dictionary([String: EntitlementValue])
 
+    var typeTitle: String {
+        switch self {
+        case .string: "String"
+        case .boolean: "Boolean"
+        case .integer: "Integer"
+        case .real: "Real"
+        case .data: "Data"
+        case .date: "Date"
+        case .array: "Array"
+        case .dictionary: "Dictionary"
+        }
+    }
+
     var displayValue: String {
         switch self {
         case let .string(value):

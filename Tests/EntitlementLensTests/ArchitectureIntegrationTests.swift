@@ -242,7 +242,7 @@ private func parseEntitlementCSV(_ data: Data) throws -> [EntitlementCSVRow] {
     }
 }
 
-private func csvFixtureRecords(_ value: String) throws -> [[String]] {
+func csvFixtureRecords(_ value: String) throws -> [[String]] {
     let characters = Array(value)
     var records: [[String]] = []
     var fields: [String] = []
