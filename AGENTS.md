@@ -5,7 +5,8 @@
 - Use the SwiftPM package at this root with a Swift 6.2-compatible macOS toolchain. Run `swift build` and `swift test` before a PR; keep the system-binary, signing, architecture, export, and cancellation integration tests enabled.
 - Static declarations, signature integrity, installed policy, execution policy, and runtime authorization are separate evidence categories. Preserve the README's distinctions and report scan coverage gaps.
 - Keep private binaries, credentials, keys, personal paths, and unrestricted forensic evidence out of Git, Actions artifacts, and PRs.
-- A successful Swift CodeQL analysis must refer to the candidate revision; scanner configuration alone does not verify analysis.
+- Successful Swift and GitHub Actions CodeQL analyses must refer to the candidate revision; scanner configuration alone does not verify analysis.
+- Keep CodeQL extraction/build jobs read-only. Upload SARIF in a separate job that runs no repository code, and preserve the strict `CodeQL results` gate across every language.
 
 ## Publication and privilege
 
