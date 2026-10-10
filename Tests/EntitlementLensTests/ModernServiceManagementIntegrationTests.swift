@@ -34,8 +34,25 @@ struct ModernServiceManagementIntegrationTests {
             #expect(inspection.apiReferences.records.contains { $0.kind == .objectiveCSelector && $0.name == "mainAppService" })
             #expect(inspection.apiReferences.records.contains { $0.kind == .objectiveCSelector && $0.name == "registerAndReturnError:" })
             #expect(inspection.apiReferences.records.contains { $0.kind == .importedSymbol && $0.name == "_OBJC_CLASS_$_SMAppService" })
-            #expect(oracle.split(separator: "\n").contains { $0.contains("__data") && $0.contains("_OBJC_CLASS_$_SMAppService") },
-                "Literal class-import storage for \(variant.name). Native fixture oracle:\n\(oracle)")
+            if variant.format == nil {
+                // Hosted Xcode 26.4's dyld_info misattributes the second consecutive ordinary bind.
+                // LLVM's independent bind table verifies the literal import without changing the fixture.
+                let bindings = try modernServiceManagementOrdinaryBindOracle(fixture)
+                let literalRows = bindings.split(separator: "\n").filter { line in
+                    let fields = line.split(whereSeparator: \.isWhitespace)
+                    return fields.count == 7 && fields[0] == "__DATA" && fields[1] == "__data"
+                        && fields[3] == "pointer" && fields[4] == "0" && fields[5] == "ServiceManagement"
+                        && fields[6] == "_OBJC_CLASS_$_SMAppService"
+                }
+                #expect(literalRows.count == 1, "Ordinary literal class-import bindings:\n\(bindings)")
+                let literalRow = try #require(literalRows.first)
+                let literalSlot = try modernServiceManagementOrdinaryLiteralSlot(literalRow, layout: layout, slice: slice)
+                #expect(!nativeSlots.contains(literalSlot))
+                #expect(Set(try modernServiceManagementOracleSlots(bindings, layout: layout, slice: slice)) == Set(nativeSlots))
+            } else {
+                #expect(oracle.split(separator: "\n").contains { $0.contains("__data") && $0.contains("_OBJC_CLASS_$_SMAppService") },
+                    "Literal class-import storage for \(variant.name). Native fixture oracle:\n\(oracle)")
+            }
             if variant.format == 12 {
                 #expect(oracle.split(separator: "\n").contains {
                     $0.contains("__AUTH_CONST") && $0.contains("__objc_classrefs") && $0.contains("auth-bind")
@@ -361,6 +378,11 @@ private func modernServiceManagementOracle(_ url: URL) throws -> String {
     return try #require(String(data: output.standardOutput, encoding: .utf8))
 }
 
+private func modernServiceManagementOrdinaryBindOracle(_ url: URL) throws -> String {
+    let output = try runFixtureTool(executable: URL(fileURLWithPath: "/usr/bin/xcrun"), arguments: ["llvm-objdump", "--macho", "--bind", url.path])
+    return try #require(String(data: output.standardOutput, encoding: .utf8))
+}
+
 private func modernServiceManagementOracleSlots(_ oracle: String, layout: MachOObjectiveCLayout, slice: MachOSlice) throws -> [UInt64] {
     try oracle.split(separator: "\n").filter { $0.contains("__objc_classrefs") && $0.contains("_OBJC_CLASS_$_SMAppService") }.map { line in
         let fields = line.split(whereSeparator: \.isWhitespace)
@@ -376,6 +398,22 @@ private func modernServiceManagementOracleSlots(_ oracle: String, layout: MachOO
         }
         return slice.fileOffset + section.fileOffset + address - section.virtualAddress
     }
+}
+
+/// LLVM supplies the __data section attribution; the layout retains its enclosing file-backed segment.
+private func modernServiceManagementOrdinaryLiteralSlot(_ line: Substring, layout: MachOObjectiveCLayout, slice: MachOSlice) throws -> UInt64 {
+    let fields = line.split(whereSeparator: \.isWhitespace)
+    guard fields.count == 7, fields[2].hasPrefix("0x"), let address = UInt64(fields[2].dropFirst(2), radix: 16) else {
+        throw ModernServiceManagementFixtureError.oracle("A literal-import row lacks its virtual address: \(line)")
+    }
+    let matches = layout.segments.filter {
+        $0.name == fields[0] && address >= $0.virtualAddress && $0.fileSize >= 8 && $0.virtualSize >= 8
+            && address - $0.virtualAddress <= $0.fileSize - 8 && address - $0.virtualAddress <= $0.virtualSize - 8
+    }
+    guard matches.count == 1, let segment = matches.first else {
+        throw ModernServiceManagementFixtureError.oracle("A literal-import address has no unique eight-byte segment mapping: \(line)")
+    }
+    return slice.fileOffset + segment.fileOffset + address - segment.virtualAddress
 }
 
 private func verifyModernServiceManagementEvidence(_ reference: StaticAPIReference, bytes: Data, url: URL, slice: MachOSlice) throws {
