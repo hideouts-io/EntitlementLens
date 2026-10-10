@@ -287,14 +287,23 @@ enum ScanCoordinator {
         configuration: ScanConfiguration,
         runningBoardCatalog: RunningBoardCatalog
     ) throws -> ScanFinding? {
+        guard file.kind != .other || configuration.deepCarve else { return nil }
+        let identity = try ArtifactAnalysisIdentity.capture(file)
         switch file.kind {
         case .machO, .bundle:
             let signing = EntitlementExtractor.inspect(file.url)
-            let carveURL = signing.mainExecutable.map(URL.init(fileURLWithPath:)) ?? file.url
-            let provenance = try ArtifactProvenanceCollector.collectCode(
+            let carveURL = identity.analyzedURL
+            if let nativeExecutable = signing.mainExecutable,
+               URL(fileURLWithPath: nativeExecutable).resolvingSymlinksInPath() != carveURL.resolvingSymlinksInPath() {
+                throw ArtifactAnalysisIdentityError.changedExecutable(carveURL.path, nativeExecutable)
+            }
+            let machO = try MachOInspector.inspectStaticFeatures(carveURL)
+            let provenance = try ArtifactProvenanceCollector.collectInspectedCode(
                 sourceURL: file.url,
-                analyzedURL: carveURL
+                analyzedURL: carveURL,
+                slices: machO.architectures.records.map(\.slice)
             )
+            try identity.verifyProvenance(provenance)
             let rawScan = configuration.deepCarve
                 ? try RawEvidenceScanner.inspect(
                     carveURL,
@@ -308,6 +317,10 @@ enum ScanCoordinator {
                 provenance: provenance,
                 signing: signing
             )
+            let staticFeatures = try StaticFeatureCollector.collectCode(
+                sourceURL: file.url, kind: file.kind, provenance: provenance, signing: signing, machO: machO
+            )
+            try identity.verifyCurrentContents()
             return ScanFinding(
                 id: UUID(),
                 path: file.url.path,
@@ -319,7 +332,8 @@ enum ScanCoordinator {
                 installedCounterpart: comparisonResult.comparison,
                 runningBoardPolicies: [],
                 embeddedObjects: rawScan.objects,
-                warnings: extractionWarnings + rawScan.warnings + comparisonResult.warnings
+                warnings: extractionWarnings + rawScan.warnings + comparisonResult.warnings,
+                staticFeatures: staticFeatures
             )
         case .propertyList:
             let rawScan = try RawEvidenceScanner.inspect(
@@ -328,12 +342,17 @@ enum ScanCoordinator {
                 maximumBytes: configuration.maximumCarveBytes
             )
             let provenance = try ArtifactProvenanceCollector.collectFile(file.url)
+            try identity.verifyProvenance(provenance)
             let runningBoardPolicies = try RunningBoardDecoder.inspect(
                 file.url,
                 sourceFileHash: provenance.sha256,
                 sourceOSBuild: provenance.sourceOperatingSystem?.buildVersion ?? "unknown",
                 catalog: runningBoardCatalog
             )
+            let staticFeatures = try StaticFeatureCollector.collectFile(
+                sourceURL: file.url, kind: file.kind, provenance: provenance
+            )
+            try identity.verifyCurrentContents()
             return ScanFinding(
                 id: UUID(),
                 path: file.url.path,
@@ -345,18 +364,21 @@ enum ScanCoordinator {
                 installedCounterpart: nil,
                 runningBoardPolicies: runningBoardPolicies,
                 embeddedObjects: rawScan.objects,
-                warnings: rawScan.warnings
+                warnings: rawScan.warnings,
+                staticFeatures: staticFeatures
             )
         case .other:
-            guard configuration.deepCarve else {
-                return nil
-            }
             let rawScan = try RawEvidenceScanner.inspect(
                 file.url,
                 kind: .other,
                 maximumBytes: configuration.maximumCarveBytes
             )
             let provenance = try ArtifactProvenanceCollector.collectFile(file.url)
+            try identity.verifyProvenance(provenance)
+            let staticFeatures = try StaticFeatureCollector.collectFile(
+                sourceURL: file.url, kind: file.kind, provenance: provenance
+            )
+            try identity.verifyCurrentContents()
             return ScanFinding(
                 id: UUID(),
                 path: file.url.path,
@@ -368,7 +390,8 @@ enum ScanCoordinator {
                 installedCounterpart: nil,
                 runningBoardPolicies: [],
                 embeddedObjects: rawScan.objects,
-                warnings: rawScan.warnings
+                warnings: rawScan.warnings,
+                staticFeatures: staticFeatures
             )
         }
     }

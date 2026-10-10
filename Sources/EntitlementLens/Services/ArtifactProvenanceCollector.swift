@@ -24,11 +24,15 @@ enum ArtifactProvenanceError: LocalizedError {
 
 enum ArtifactProvenanceCollector {
     static func collectCode(sourceURL: URL, analyzedURL: URL) throws -> ArtifactProvenance {
-        try collect(
+        try collectInspectedCode(
             sourceURL: sourceURL,
             analyzedURL: analyzedURL,
-            machOSlices: try MachOInspector.inspect(analyzedURL)
+            slices: try MachOInspector.inspect(analyzedURL)
         )
+    }
+
+    static func collectInspectedCode(sourceURL: URL, analyzedURL: URL, slices: [MachOSlice]) throws -> ArtifactProvenance {
+        try collect(sourceURL: sourceURL, analyzedURL: analyzedURL, machOSlices: slices)
     }
 
     static func collectFile(_ url: URL) throws -> ArtifactProvenance {
@@ -77,6 +81,7 @@ enum ArtifactProvenanceCollector {
         var digest = SHA256()
         var buffer = [UInt8](repeating: 0, count: 1_048_576)
         while true {
+            try Task.checkCancellation()
             let count = stream.read(&buffer, maxLength: buffer.count)
             if count > 0 {
                 digest.update(data: Data(buffer[0..<count]))

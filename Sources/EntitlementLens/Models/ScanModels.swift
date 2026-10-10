@@ -415,6 +415,8 @@ struct ScanFinding: Codable, Hashable, Identifiable, Sendable {
     let runningBoardPolicies: [RunningBoardPolicyDecoding]
     let embeddedObjects: [EmbeddedObject]
     let warnings: [String]
+    /// Missing in legacy exports means static-feature collection was not recorded.
+    let staticFeatures: StaticFeatureSet?
 
     var name: String {
         URL(fileURLWithPath: path).lastPathComponent

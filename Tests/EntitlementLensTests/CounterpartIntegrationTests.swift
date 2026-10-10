@@ -4,6 +4,51 @@ import Testing
 
 struct CounterpartIntegrationTests {
     @Test
+    func signedSliceDeclarationsFollowNativeArchitectureNames() throws {
+        let root = try counterpartFixtureRoot()
+        defer { removeCounterpartFixture(root) }
+        let system = URL(fileURLWithPath: "/usr/bin/ssh")
+        let lipo = URL(fileURLWithPath: "/usr/bin/lipo")
+        let codesign = URL(fileURLWithPath: "/usr/bin/codesign")
+        let output = try runFixtureTool(executable: lipo, arguments: ["-archs", system.path])
+        let architectures = String(decoding: output.standardOutput, as: UTF8.self)
+            .split(whereSeparator: \.isWhitespace).map(String.init)
+        try #require(!architectures.isEmpty)
+        var paths: [String] = []
+        for (index, architecture) in architectures.enumerated() {
+            let slice = root.appendingPathComponent("slice-\(index)")
+            if architectures.count == 1 {
+                try Data(contentsOf: system).write(to: slice)
+            } else {
+                _ = try runFixtureTool(executable: lipo,
+                    arguments: [system.path, "-thin", architecture, "-output", slice.path])
+            }
+            let plist = root.appendingPathComponent("slice-\(index).plist")
+            let declarations: [String: String] = ["fixture.architecture": architecture]
+            try PropertyListSerialization.data(fromPropertyList: declarations, format: .xml, options: 0).write(to: plist)
+            _ = try runFixtureTool(executable: codesign,
+                arguments: ["--force", "--sign", "-", "--timestamp=none", "--identifier",
+                    "io.hideouts.EntitlementLens.ArchitectureFixture", "--entitlements", plist.path, slice.path])
+            paths.append(slice.path)
+        }
+        let universal = root.appendingPathComponent("native.universal")
+        _ = try runFixtureTool(executable: lipo, arguments: ["-create"] + paths + ["-output", universal.path])
+        _ = try runFixtureTool(executable: codesign, arguments: ["--verify", "--strict", "--all-architectures", universal.path])
+        let finding = try counterpartFinding(source: universal, installed: system)
+        #expect(Set(finding.provenance.machOSlices.map(\.architecture)) == Set(architectures))
+        let comparison = try #require(finding.installedCounterpart?.entitlementComparison)
+        #expect(comparison.isComplete)
+        for architecture in architectures {
+            let scope = try comparisonScope(comparison, architecture: architecture)
+            let declaration = try comparisonEntry(scope, key: "fixture.architecture")
+            #expect(scope.source.signatureStatus == .valid)
+            #expect(declaration.sourceValue == .string(architecture))
+            #expect(declaration.result == .removed)
+        }
+        try verifyCounterpartExports(finding)
+    }
+
+    @Test
     func signedUniversalChangesAndExportsRetainArchitectureAndTypedValues() throws {
         let root = try counterpartFixtureRoot()
         defer { removeCounterpartFixture(root) }
@@ -185,7 +230,8 @@ private func counterpartFinding(source: URL, installed: URL) throws -> ScanFindi
         counterpartProvenance: installedProvenance, counterpartSigning: installedSigning)
     return ScanFinding(id: UUID(), path: source.path, kind: .machO, fileFormat: "Mach-O",
         fileSize: sourceProvenance.fileSize, signing: sourceSigning, provenance: sourceProvenance,
-        installedCounterpart: comparison, runningBoardPolicies: [], embeddedObjects: [], warnings: sourceSigning.extractionWarnings)
+        installedCounterpart: comparison, runningBoardPolicies: [], embeddedObjects: [], warnings: sourceSigning.extractionWarnings,
+        staticFeatures: nil)
 }
 
 private func comparisonScope(_ comparison: EntitlementComparison, architecture: String) throws -> EntitlementScopeComparison {

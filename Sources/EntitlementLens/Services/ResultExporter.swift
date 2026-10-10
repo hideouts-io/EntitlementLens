@@ -29,7 +29,8 @@ enum ResultExporter {
             "entitlement_key", "entitlement_value",
             "entitlement_source", "entitlement_architecture", "source_signature_integrity", "source_signature_detail",
             "source_cdhash", "source_notes", "collection_notes", "entitlement_value_json",
-            "counterpart_entitlement_summary", "counterpart_entitlement_comparison_json"
+            "counterpart_entitlement_summary", "counterpart_entitlement_comparison_json",
+            "static_features_schema_version", "static_features_json"
         ].joined(separator: ",") + "\n"
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -47,13 +48,25 @@ enum ResultExporter {
             } else {
                 comparisonJSON = ""
             }
+            let staticFeaturesJSON: String
+            if let features = finding.staticFeatures {
+                let data = try encoder.encode(features)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    throw ResultExportError.invalidStaticFeaturesJSON(finding.path)
+                }
+                staticFeaturesJSON = json
+            } else {
+                staticFeaturesJSON = ""
+            }
             guard let signing = finding.signing else {
-                return [row(finding: finding, group: nil, entitlement: nil, valueJSON: "", comparisonJSON: comparisonJSON)]
+                return [row(finding: finding, group: nil, entitlement: nil, valueJSON: "", comparisonJSON: comparisonJSON,
+                    staticFeaturesJSON: staticFeaturesJSON)]
             }
             return try entitlementSourceGroups(signing).enumerated().flatMap { groupIndex, group -> [String] in
                 if group.entitlements.isEmpty {
                     return [row(finding: finding, group: group, entitlement: nil, valueJSON: "",
-                        comparisonJSON: groupIndex == 0 ? comparisonJSON : "")]
+                        comparisonJSON: groupIndex == 0 ? comparisonJSON : "",
+                        staticFeaturesJSON: groupIndex == 0 ? staticFeaturesJSON : "")]
                 }
                 return try group.entitlements.sorted { $0.key < $1.key }.enumerated().map { entryIndex, entry in
                     let data = try encoder.encode(entry.value)
@@ -61,7 +74,8 @@ enum ResultExporter {
                         throw ResultExportError.invalidEntitlementJSON(entry.key)
                     }
                     return row(finding: finding, group: group, entitlement: entry, valueJSON: valueJSON,
-                        comparisonJSON: groupIndex == 0 && entryIndex == 0 ? comparisonJSON : "")
+                        comparisonJSON: groupIndex == 0 && entryIndex == 0 ? comparisonJSON : "",
+                        staticFeaturesJSON: groupIndex == 0 && entryIndex == 0 ? staticFeaturesJSON : "")
                 }
             }
         }
@@ -73,7 +87,8 @@ enum ResultExporter {
         group: EntitlementSourceGroup?,
         entitlement: EntitlementEntry?,
         valueJSON: String,
-        comparisonJSON: String
+        comparisonJSON: String,
+        staticFeaturesJSON: String
     ) -> String {
         let platformIdentifier = finding.signing?.platformIdentifier.map(String.init) ?? ""
         let sourceOperatingSystem = finding.provenance.sourceOperatingSystem?.displayValue ?? ""
@@ -125,7 +140,9 @@ enum ResultExporter {
             collectionNotes.joined(separator: "\n"),
             valueJSON,
             finding.installedCounterpart?.entitlementComparison?.summary ?? "",
-            comparisonJSON
+            comparisonJSON,
+            finding.staticFeatures.map { String($0.schemaVersion.rawValue) } ?? "",
+            staticFeaturesJSON
         ]
         return values.map(escapeCSV).joined(separator: ",")
     }
@@ -138,6 +155,7 @@ enum ResultExporter {
 private enum ResultExportError: LocalizedError {
     case invalidEntitlementJSON(String)
     case invalidComparisonJSON(String)
+    case invalidStaticFeaturesJSON(String)
 
     var errorDescription: String? {
         switch self {
@@ -145,6 +163,8 @@ private enum ResultExportError: LocalizedError {
             "Could not export entitlement \(key): the encoded value was not UTF-8 JSON."
         case let .invalidComparisonJSON(path):
             "Could not export the counterpart comparison for \(path): the encoded comparison was not UTF-8 JSON."
+        case let .invalidStaticFeaturesJSON(path):
+            "Could not export static features for \(path): the encoded feature block was not UTF-8 JSON."
         }
     }
 }

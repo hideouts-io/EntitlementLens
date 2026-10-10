@@ -15,6 +15,7 @@ enum EntitlementExtractor {
         }
 
         let validityFlags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSDoNotValidateResources)
+            .union(.noNetworkAccess)
         let validityStatus = SecStaticCodeCheckValidity(staticCode, validityFlags, nil)
         let identifierStatus: SignatureStatus
 
@@ -145,7 +146,7 @@ enum EntitlementExtractor {
         }
         let validityStatus = SecStaticCodeCheckValidity(
             staticCode,
-            SecCSFlags(rawValue: kSecCSDoNotValidateResources),
+            SecCSFlags(rawValue: kSecCSDoNotValidateResources).union(.noNetworkAccess),
             nil
         )
         var rawInformation: CFDictionary?
@@ -217,7 +218,7 @@ enum EntitlementExtractor {
         }
         let status = SecStaticCodeCheckValidity(
             staticCode,
-            SecCSFlags(rawValue: kSecCSCheckAllArchitectures),
+            SecCSFlags(rawValue: kSecCSCheckAllArchitectures).union(.noNetworkAccess),
             nil
         )
         if status == errSecSuccess {
