@@ -34,7 +34,8 @@ struct ModernServiceManagementIntegrationTests {
             #expect(inspection.apiReferences.records.contains { $0.kind == .objectiveCSelector && $0.name == "mainAppService" })
             #expect(inspection.apiReferences.records.contains { $0.kind == .objectiveCSelector && $0.name == "registerAndReturnError:" })
             #expect(inspection.apiReferences.records.contains { $0.kind == .importedSymbol && $0.name == "_OBJC_CLASS_$_SMAppService" })
-            #expect(oracle.split(separator: "\n").contains { $0.contains("__data") && $0.contains("_OBJC_CLASS_$_SMAppService") })
+            #expect(oracle.split(separator: "\n").contains { $0.contains("__data") && $0.contains("_OBJC_CLASS_$_SMAppService") },
+                "Literal class-import storage for \(variant.name). Native fixture oracle:\n\(oracle)")
             if variant.format == 12 {
                 #expect(oracle.split(separator: "\n").contains {
                     $0.contains("__AUTH_CONST") && $0.contains("__objc_classrefs") && $0.contains("auth-bind")
