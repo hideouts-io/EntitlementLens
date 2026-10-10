@@ -72,7 +72,7 @@ struct ModernServiceManagementIntegrationTests {
         #import <ServiceManagement/ServiceManagement.h>
         #import <Foundation/Foundation.h>
         extern Class fixture_sm_import __asm("_OBJC_CLASS_$_SMAppService");
-        Class *fixture_sm_import_address = &fixture_sm_import;
+        Class *fixture_sm_import_address __attribute__((section("__DATA,__data"))) = &fixture_sm_import;
         const char *fixture_raw_class = "SMAppService";
         const char *fixture_raw_import = "_OBJC_CLASS_$_SMAppService";
         SEL fixture_first_selector(void) { return @selector(mainAppService); }
@@ -306,7 +306,7 @@ private func modernServiceManagementSource(_ root: URL) throws -> URL {
     #import <ServiceManagement/ServiceManagement.h>
     #import <Foundation/Foundation.h>
     extern Class fixture_sm_import __asm("_OBJC_CLASS_$_SMAppService");
-    Class *fixture_sm_import_address = &fixture_sm_import;
+    Class *fixture_sm_import_address __attribute__((section("__DATA,__data"))) = &fixture_sm_import;
     const char *fixture_raw_class = "SMAppService";
     const char *fixture_raw_import = "_OBJC_CLASS_$_SMAppService";
     SEL fixture_standalone_selector(void) { return @selector(registerAndReturnError:); }
