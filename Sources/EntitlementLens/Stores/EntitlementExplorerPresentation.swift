@@ -1,6 +1,15 @@
 import Foundation
 
 extension ScanStore {
+    /// Curated reference follows a current selected group; it never changes retained declarations.
+    var selectedEntitlementExplanation: EntitlementExplanationLookup? {
+        guard browserMode == .entitlements,
+              let key = selectedEntitlementKey,
+              explorerGroups.contains(where: { $0.key == key }),
+              case let .success(catalog) = entitlementExplanationCatalogResult else { return nil }
+        return catalog.lookup(key: key)
+    }
+
     var selectedEntitlementDeclarations: [EntitlementDeclaration] {
         explorerGroups.first { $0.key == selectedEntitlementKey }?.declarations ?? []
     }
@@ -64,5 +73,14 @@ extension ScanStore {
                 isExploring = false
             }
         }
+    }
+}
+
+/// A malformed bundled reference is an explicit presentation failure, independent of inspection.
+func bundledEntitlementExplanationCatalogResult() -> Result<EntitlementExplanationCatalog, EntitlementExplanationCatalogError> {
+    do {
+        return .success(try EntitlementExplanationCatalog.bundled())
+    } catch {
+        return .failure(error)
     }
 }

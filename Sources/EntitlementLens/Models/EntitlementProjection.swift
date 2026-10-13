@@ -1,8 +1,15 @@
 import Foundation
 
-enum EntitlementSource: Hashable, Sendable {
+enum EntitlementSource: Codable, Hashable, Sendable {
     case standardDictionary
     case architecture(String)
+
+    var title: String {
+        switch self {
+        case .standardDictionary: "Standard dictionary (unscoped)"
+        case let .architecture(architecture): "Architecture: \(architecture)"
+        }
+    }
 }
 
 struct EntitlementSourceGroup: Hashable, Sendable {
@@ -11,6 +18,7 @@ struct EntitlementSourceGroup: Hashable, Sendable {
     let uniqueCDHash: String?
     let entitlements: [EntitlementEntry]
     let warnings: [String]
+    let collectionState: EntitlementCollectionState?
 }
 
 /// The standard dictionary is unscoped; architecture groups retain their original attribution.
@@ -20,7 +28,8 @@ func entitlementSourceGroups(_ signing: SigningDetails) -> [EntitlementSourceGro
         status: signing.status,
         uniqueCDHash: signing.uniqueCDHash,
         entitlements: signing.entitlements,
-        warnings: []
+        warnings: [],
+        collectionState: signing.entitlementCollectionState
     )
     let architectures = signing.architectureEntitlements.sorted { $0.architecture < $1.architecture }.map {
         EntitlementSourceGroup(
@@ -28,7 +37,8 @@ func entitlementSourceGroups(_ signing: SigningDetails) -> [EntitlementSourceGro
             status: $0.status,
             uniqueCDHash: $0.uniqueCDHash,
             entitlements: $0.entitlements,
-            warnings: $0.warnings
+            warnings: $0.warnings,
+            collectionState: $0.collectionState
         )
     }
     // Primary extraction warnings include other sources and remain on SigningDetails/ScanFinding.

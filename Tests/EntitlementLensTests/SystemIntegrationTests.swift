@@ -81,6 +81,12 @@ struct SystemIntegrationTests {
         #expect(comparison?.path == "/usr/bin/ssh")
         #expect(comparison?.relationship == .identical)
         #expect(comparison?.differences.isEmpty == true)
+        let entitlements = try #require(comparison?.entitlementComparison)
+        #expect(entitlements.isComplete)
+        #expect(!entitlements.hasDifferences)
+        #expect(entitlements.scopes.count == sourceProvenance.machOSlices.count + 1)
+        #expect(entitlements.scopes.flatMap(\.entries).allSatisfy { $0.result == .unchanged })
+        #expect(comparison?.entitlementKeys == distinctEntitlementKeys(entitlementSourceGroups(sourceSigning)).sorted())
     }
 
     @Test
