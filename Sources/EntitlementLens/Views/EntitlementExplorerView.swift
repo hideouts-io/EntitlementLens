@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EntitlementExplorerView: View {
     @Bindable var store: ScanStore
+    @State private var showsFilterProposal = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -33,6 +34,9 @@ struct EntitlementExplorerView: View {
         .padding(.top, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("By Entitlement")
+        .sheet(isPresented: $showsFilterProposal) {
+            EntitlementFilterProposalView(store: store)
+        }
     }
 
     private var queryControls: some View {
@@ -66,6 +70,10 @@ struct EntitlementExplorerView: View {
                 case .any, .booleanTrue, .booleanFalse: EmptyView()
                 }
                 Spacer(minLength: 0)
+                Button("Describe a filter", systemImage: "sparkles") {
+                    showsFilterProposal = true
+                }
+                .accessibilityIdentifier("explorer.describe-filter")
                 if store.isExploring {
                     ProgressView().controlSize(.small)
                         .accessibilityIdentifier("explorer.progress")
@@ -122,6 +130,7 @@ struct EntitlementExplorerView: View {
                 .padding(.horizontal)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
+                        selectedKeyExplanation
                         ForEach(group.declarations) { declaration in
                             declarationRow(declaration)
                         }
@@ -133,6 +142,25 @@ struct EntitlementExplorerView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var selectedKeyExplanation: some View {
+        switch store.entitlementExplanationCatalogResult {
+        case let .success(catalog):
+            if let lookup = store.selectedEntitlementExplanation {
+                EntitlementExplanationView(
+                    lookup: lookup,
+                    catalogRevision: catalog.revision,
+                    reviewedOn: catalog.reviewedOn
+                )
+                .id(lookup)
+            }
+        case let .failure(error):
+            Label("Curated reference unavailable: \(error.localizedDescription) Raw declarations remain available below.", systemImage: "exclamationmark.triangle")
+                .font(.caption).foregroundStyle(.orange)
+                .accessibilityIdentifier("explorer.explanation.error")
+        }
     }
 
     private func declarationRow(_ declaration: EntitlementDeclaration) -> some View {
@@ -148,6 +176,14 @@ struct EntitlementExplorerView: View {
                 Text(declaration.sourceTitle).font(.caption.weight(.semibold))
                 Text("\(declaration.valueTypeTitle): \(entitlementValuePreview(declaration.value))")
                     .font(.caption.monospaced()).lineLimit(3)
+                if case let .some(.available(explanation)) = store.selectedEntitlementExplanation {
+                    let observation = entitlementExplanationObservation(value: declaration.value, explanation: explanation)
+                    if case .shapeMismatch = observation {
+                        Text(observation.message)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("explorer.explanation.shape-mismatch.\(declaration.findingID).\(declaration.id.sourceOrdinal).\(declaration.key)")
+                    }
+                }
                 Text("Source signature: \(declaration.status.title) · \(declaration.collectionOutcome.rawValue)")
                     .font(.caption).foregroundStyle(signatureColor(declaration.status))
                 if let hash = declaration.uniqueCDHash {
