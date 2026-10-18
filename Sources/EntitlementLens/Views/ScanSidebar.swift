@@ -26,21 +26,56 @@ struct ScanSidebar: View {
             }
 
             Section("Quick Scans") {
-                scanButton("Applications", image: "app.badge", action: store.scanApplications)
-                scanButton("System", image: "gearshape.2", action: store.scanSystem)
-                scanButton("Entire Mac", image: "desktopcomputer", action: store.scanEntireMac)
+                scanButton(
+                    "Applications", subtitle: "Apps in /Applications\nand /System/Applications",
+                    image: "app.badge", identifier: "scan.quick.applications", action: store.scanApplications
+                )
+                scanButton(
+                    "System", subtitle: "Selected services, frameworks, and tools",
+                    image: "gearshape.2", identifier: "scan.quick.system", action: store.scanSystem
+                )
+                scanButton(
+                    "Entire Mac", subtitle: "Common app, system, library, and user roots",
+                    image: "desktopcomputer", identifier: "scan.quick.entire-mac", action: store.scanEntireMac
+                )
             }
 
             Section("Options") {
-                Toggle("Include hidden files", isOn: $store.includeHidden)
-                Toggle("Deep carve", isOn: $store.deepCarve)
-                    .accessibilityIdentifier("scan.deep-carve")
-                TextField("Excluded paths (; separated)", text: $store.excludedPathsText, axis: .vertical)
-                    .lineLimit(2...4)
-                    .accessibilityIdentifier("scan.excluded-paths")
-                Text("Deep carve parses embedded plists and performs a strings-like keyword scan. Symbolic links are never followed.")
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Include hidden files", isOn: $store.includeHidden)
+                        .accessibilityIdentifier("scan.include-hidden")
+                    Text("Include dotfiles and other hidden items in the chosen scope.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Deep carve", isOn: $store.deepCarve)
+                        .accessibilityIdentifier("scan.deep-carve")
+                    Text("Slower scan of embedded plists and strings. These are supporting evidence, not signed entitlements.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Excluded paths")
+                        .font(.subheadline)
+                    TextField("Absolute paths; separate with ; or a new line", text: $store.excludedPathsText, axis: .vertical)
+                        .lineLimit(2...4)
+                        .accessibilityLabel("Excluded paths")
+                        .accessibilityIdentifier("scan.excluded-paths")
+                    Text("These paths are skipped. Keep the default macOS maintenance-volume exclusions unless they are in scope.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Symbolic links are never followed. Broad scans may encounter protected locations; review coverage afterward.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -69,18 +104,23 @@ struct ScanSidebar: View {
         .listStyle(.sidebar)
     }
 
-    private func scanButton(_ title: String, image: String, action: @escaping () -> Void) -> some View {
+    private func scanButton(_ title: String, subtitle: String, image: String, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack {
-                Label(title, systemImage: image)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            HStack(alignment: .top, spacing: 9) {
+                Image(systemName: image)
+                    .frame(width: 17)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(store.isScanning)
+        .accessibilityIdentifier(identifier)
     }
 }

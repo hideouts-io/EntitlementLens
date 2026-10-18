@@ -26,6 +26,7 @@ The interface is designed for security research, software provenance review, inc
 - [RunningBoard policy decoding](#runningboard-policy-decoding)
 - [Coverage, permissions, and privileged retry](#coverage-permissions-and-privileged-retry)
 - [Search, actions, and exports](#search-actions-and-exports)
+- [Research submissions](#research-submissions)
 - [Interpretation boundaries](#interpretation-boundaries)
 - [Development and testing](#development-and-testing)
 - [Troubleshooting](#troubleshooting)
@@ -278,6 +279,14 @@ These exports support downstream analysis motivated by [research on macOS-specif
 The local `StaticResearchExportConsumer.inspect(exportURL:sourceURLs:)` validation path consumes the existing typed JSON findings and produces a separate version-1 research coverage report. It retains original feature blocks, provenance, collection methods, limits, limitations, and locations. Coverage distinguishes observed evidence, complete absence within the recorded scope, and unknown collection; nonempty incomplete collections have lower-bound counts, while unknown counts are omitted. Entitlement counts describe dictionary entries, with separate coverage for each dictionary source and architecture/slice scope. An empty complete dictionary remains scoped absence even when another dictionary is unavailable; whole-family absence requires complete outer and dictionary collection. Legacy findings without a feature block remain unrecorded. App JSON/CSV contracts and feature schema v3 are unchanged.
 
 Inputs are bounded to 16 MiB of export JSON, 256 findings, depth 64, 200,000 lexical nodes, and 1 MiB per encoded JSON string. Source verification accepts only explicitly supplied local files matching analyzed-artifact paths; paths retained in JSON, including external persistence configurations, are never opened automatically. Regular-file snapshots reject final symlinks and changed metadata, with 64 MiB per source and a 128 MiB aggregate allowance; failed source reads conservatively consume their permitted allowance, and each reader may read one extra byte to detect growth. Source results distinguish unsupplied, unavailable, mismatched, and matching bytes. A matching artifact hash permits exact retained API-name/NUL-byte checks and pointer-sized reference-slot bounds checks; missing optional Objective-C slots or unsupported name evidence remain incomplete. These checks do not reconstruct binding or section attribution, validate PAC, establish origin or trust, or complete the original collection. Inspected images are never loaded or executed.
+
+## Research submissions
+
+The separate public [EntitlementLens Research dataset](https://github.com/hideouts-io/EntitlementLens-Research) accepts reviewed, versioned static-entitlement cases. Check a result's **Research** box, then choose **Prepare Research Submission…**. The app prepares one case per checked finding: enter a case ID, source type, public labels, and the exact collector source commit; preview every field; then save the candidate locally. A commit typed into the app is researcher-supplied and is not verified against the running build. An uncommitted collector build has no exact source commit, so its current Git HEAD must not be represented as one.
+
+The public v1 case format retains artifact SHA-256, collection macOS version and build, signature integrity, and typed per-architecture signed declarations and collection states. It cannot carry scan-level coverage, other static feature families, unscoped declarations that differ from all architecture dictionaries, arbitrary carved content, or warnings. Preparation fails when dropping such evidence would make the case misleading. Full JSON/CSV findings and coverage exports remain local and unchanged; they are not public submission files.
+
+Before sharing, follow the dataset's [contribution guidance](https://github.com/hideouts-io/EntitlementLens-Research/blob/main/CONTRIBUTING.md), review the saved JSON for private values and sharing rights, and validate it against the versioned case schema. Publication requires a separate human-reviewed Git change. The app does not sign in to GitHub, upload, commit, or open a pull request.
 
 ## Interpretation boundaries
 

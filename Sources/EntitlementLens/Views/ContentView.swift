@@ -47,15 +47,28 @@ struct ContentView: View {
                     } label: {
                         Label("Stop", systemImage: "stop.fill")
                     }
+                    .accessibilityIdentifier("scan.stop")
                 }
+
+                Button {
+                    store.showsResearchSubmission = true
+                } label: {
+                    Label("Prepare Research Submission…", systemImage: "doc.badge.plus")
+                }
+                .accessibilityIdentifier("research.prepare")
+                .disabled(store.isScanning || store.researchSelectedFindingIDs.isEmpty)
 
                 Menu {
                     Button("JSON…") { store.exportResults(format: .json) }
+                        .accessibilityIdentifier("export.json")
                     Button("CSV…") { store.exportResults(format: .csv) }
+                        .accessibilityIdentifier("export.csv")
                     Button("Coverage JSON…") { store.exportCoverage() }
+                        .accessibilityIdentifier("export.coverage")
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
+                .accessibilityIdentifier("export.menu")
                 .disabled(store.isExporting || (store.findings.isEmpty && store.issues.isEmpty))
                 if store.isExporting {
                     ProgressView("Exporting…")
@@ -66,6 +79,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $store.showsIssues) {
             ScanIssuesView(store: store)
+        }
+        .sheet(isPresented: $store.showsResearchSubmission) {
+            ResearchSubmissionView(store: store)
         }
     }
 }
