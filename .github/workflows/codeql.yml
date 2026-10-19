@@ -1,0 +1,108 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: swift
+            os: macos-26
+            build-mode: manual
+          - language: actions
+            os: ubuntu-latest
+            build-mode: none
+    env:
+      DEVELOPER_DIR: ${{ matrix.language == 'swift' && '/Applications/Xcode_26.4.1.app/Contents/Developer' || '' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Build Swift source for extraction
+        if: matrix.language == 'swift'
+        run: swift build
+      - name: Analyze source without upload permissions
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
+          output: results
+          upload: never
+          upload-database: false
+      - name: Retain analysis results for the upload job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: results/*.sarif
+          if-no-files-found: error
+          retention-days: 7
+
+  upload:
+    name: Upload CodeQL (${{ matrix.language }})
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [swift, actions]
+    steps:
+      - name: Download this run's analysis results
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: results
+      - name: Upload SARIF without checking out or running repository code
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          sarif_file: results
+          category: /language:${{ matrix.language }}
+          ref: ${{ github.ref }}
+          sha: ${{ github.sha }}
+          wait-for-processing: true
+
+  results:
+    name: CodeQL results
+    needs: [analyze, upload]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require completed analysis and processed uploads
+        env:
+          ANALYSIS_RESULT: ${{ needs.analyze.result }}
+          UPLOAD_RESULT: ${{ needs.upload.result }}
+        run: |
+          if [[ "$ANALYSIS_RESULT" != success || "$UPLOAD_RESULT" != success ]]; then
+            printf 'CodeQL did not complete: analysis=%s upload=%s\n' "$ANALYSIS_RESULT" "$UPLOAD_RESULT" >&2
+            exit 1
+          fi

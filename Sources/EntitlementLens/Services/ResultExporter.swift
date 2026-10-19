@@ -28,24 +28,54 @@ enum ResultExporter {
             "counterpart_relationship", "counterpart_sha256", "counterpart_differences",
             "entitlement_key", "entitlement_value",
             "entitlement_source", "entitlement_architecture", "source_signature_integrity", "source_signature_detail",
-            "source_cdhash", "source_notes", "collection_notes", "entitlement_value_json"
+            "source_cdhash", "source_notes", "collection_notes", "entitlement_value_json",
+            "counterpart_entitlement_summary", "counterpart_entitlement_comparison_json",
+            "static_features_schema_version", "static_features_json"
         ].joined(separator: ",") + "\n"
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let rows = try findings.flatMap { finding -> [String] in
-            guard let signing = finding.signing else {
-                return [row(finding: finding, group: nil, entitlement: nil, valueJSON: "")]
-            }
-            return try entitlementSourceGroups(signing).flatMap { group -> [String] in
-                if group.entitlements.isEmpty {
-                    return [row(finding: finding, group: group, entitlement: nil, valueJSON: "")]
+            // Retain the complete comparison, including installed-only keys and architectures,
+            // on the first declaration row per artifact. Repeating it for every key would
+            // make export size grow quadratically; summaries remain on every row.
+            let comparisonJSON: String
+            if let comparison = finding.installedCounterpart?.entitlementComparison {
+                let data = try encoder.encode(comparison)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    throw ResultExportError.invalidComparisonJSON(finding.path)
                 }
-                return try group.entitlements.sorted { $0.key < $1.key }.map { entry in
+                comparisonJSON = json
+            } else {
+                comparisonJSON = ""
+            }
+            let staticFeaturesJSON: String
+            if let features = finding.staticFeatures {
+                let data = try encoder.encode(features)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    throw ResultExportError.invalidStaticFeaturesJSON(finding.path)
+                }
+                staticFeaturesJSON = json
+            } else {
+                staticFeaturesJSON = ""
+            }
+            guard let signing = finding.signing else {
+                return [row(finding: finding, group: nil, entitlement: nil, valueJSON: "", comparisonJSON: comparisonJSON,
+                    staticFeaturesJSON: staticFeaturesJSON)]
+            }
+            return try entitlementSourceGroups(signing).enumerated().flatMap { groupIndex, group -> [String] in
+                if group.entitlements.isEmpty {
+                    return [row(finding: finding, group: group, entitlement: nil, valueJSON: "",
+                        comparisonJSON: groupIndex == 0 ? comparisonJSON : "",
+                        staticFeaturesJSON: groupIndex == 0 ? staticFeaturesJSON : "")]
+                }
+                return try group.entitlements.sorted { $0.key < $1.key }.enumerated().map { entryIndex, entry in
                     let data = try encoder.encode(entry.value)
                     guard let valueJSON = String(data: data, encoding: .utf8) else {
                         throw ResultExportError.invalidEntitlementJSON(entry.key)
                     }
-                    return row(finding: finding, group: group, entitlement: entry, valueJSON: valueJSON)
+                    return row(finding: finding, group: group, entitlement: entry, valueJSON: valueJSON,
+                        comparisonJSON: groupIndex == 0 && entryIndex == 0 ? comparisonJSON : "",
+                        staticFeaturesJSON: groupIndex == 0 && entryIndex == 0 ? staticFeaturesJSON : "")
                 }
             }
         }
@@ -56,7 +86,9 @@ enum ResultExporter {
         finding: ScanFinding,
         group: EntitlementSourceGroup?,
         entitlement: EntitlementEntry?,
-        valueJSON: String
+        valueJSON: String,
+        comparisonJSON: String,
+        staticFeaturesJSON: String
     ) -> String {
         let platformIdentifier = finding.signing?.platformIdentifier.map(String.init) ?? ""
         let sourceOperatingSystem = finding.provenance.sourceOperatingSystem?.displayValue ?? ""
@@ -106,7 +138,11 @@ enum ResultExporter {
             group?.uniqueCDHash ?? "",
             sourceNotes.joined(separator: "\n"),
             collectionNotes.joined(separator: "\n"),
-            valueJSON
+            valueJSON,
+            finding.installedCounterpart?.entitlementComparison?.summary ?? "",
+            comparisonJSON,
+            finding.staticFeatures.map { String($0.schemaVersion.rawValue) } ?? "",
+            staticFeaturesJSON
         ]
         return values.map(escapeCSV).joined(separator: ",")
     }
@@ -118,11 +154,17 @@ enum ResultExporter {
 
 private enum ResultExportError: LocalizedError {
     case invalidEntitlementJSON(String)
+    case invalidComparisonJSON(String)
+    case invalidStaticFeaturesJSON(String)
 
     var errorDescription: String? {
         switch self {
         case let .invalidEntitlementJSON(key):
             "Could not export entitlement \(key): the encoded value was not UTF-8 JSON."
+        case let .invalidComparisonJSON(path):
+            "Could not export the counterpart comparison for \(path): the encoded comparison was not UTF-8 JSON."
+        case let .invalidStaticFeaturesJSON(path):
+            "Could not export static features for \(path): the encoded feature block was not UTF-8 JSON."
         }
     }
 }

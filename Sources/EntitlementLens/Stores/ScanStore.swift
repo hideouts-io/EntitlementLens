@@ -25,6 +25,7 @@ final class ScanStore {
     }
     var browserMode: EntitlementBrowserMode = .files {
         didSet {
+            if browserMode != oldValue { invalidateFilterProposal() }
             if browserMode == .entitlements { refreshEntitlementExplorer() }
             else {
                 cancelEntitlementExplorer()
@@ -33,23 +34,43 @@ final class ScanStore {
         }
     }
     var explorerKeyPattern = "" {
-        didSet { refreshEntitlementExplorer() }
+        didSet {
+            if !explorerKeyPattern.utf8.elementsEqual(oldValue.utf8) { invalidateFilterProposal() }
+            refreshEntitlementExplorer()
+        }
     }
     var explorerKeyMode: EntitlementKeyMatchMode = .exact {
-        didSet { refreshEntitlementExplorer() }
+        didSet {
+            if explorerKeyMode != oldValue { invalidateFilterProposal() }
+            refreshEntitlementExplorer()
+        }
     }
     var explorerValueMode: EntitlementValueMatchMode = .any {
-        didSet { refreshEntitlementExplorer() }
+        didSet {
+            if explorerValueMode != oldValue { invalidateFilterProposal() }
+            refreshEntitlementExplorer()
+        }
     }
     var explorerValueText = "" {
-        didSet { refreshEntitlementExplorer() }
+        didSet {
+            if !explorerValueText.utf8.elementsEqual(oldValue.utf8) { invalidateFilterProposal() }
+            refreshEntitlementExplorer()
+        }
     }
+    var filterRequestText = "" {
+        didSet {
+            if !filterRequestText.utf8.elementsEqual(oldValue.utf8) { invalidateFilterProposal() }
+        }
+    }
+    var filterProposalState: EntitlementFilterProposalState = .idle
+    var filterModelAvailability = entitlementFilterAvailability()
     var selectedEntitlementKey: String? {
         didSet { selectExplorerFinding() }
     }
     var explorerGroups: [EntitlementKeyGroup] = []
     var explorerQueryError: String?
     var isExploring = false
+    let entitlementExplanationCatalogResult: Result<EntitlementExplanationCatalog, EntitlementExplanationCatalogError> = bundledEntitlementExplanationCatalogResult()
     private(set) var filteredFindings: [ScanFinding] = []
     private(set) var hiddenEmptyCount = 0
     private(set) var isFiltering = false
@@ -78,6 +99,12 @@ final class ScanStore {
     var explorerTask: Task<Void, Never>?
     @ObservationIgnored
     var explorerRequest = UUID()
+    @ObservationIgnored
+    var filterProposalOwnership: EntitlementFilterRequestOwnership?
+    @ObservationIgnored
+    var filterGenerationTask: Task<Void, Never>?
+    @ObservationIgnored
+    var filterDeadlineTask: Task<Void, Never>?
     @ObservationIgnored
     private var outcomeByID: [UUID: FindingOutcome] = [:]
     @ObservationIgnored
@@ -361,6 +388,7 @@ final class ScanStore {
         }
         scanTask?.cancel()
         cancelEntitlementExplorer()
+        invalidateFilterProposal()
         entitlementDeclarationIndex = []
         explorerGroups = []
         selectedEntitlementKey = nil

@@ -129,23 +129,11 @@ struct EntitlementDeclaration: Identifiable, Sendable {
     let collectionWarnings: [String]
 
     var sourceTitle: String {
-        switch source {
-        case .standardDictionary: "Standard dictionary (unscoped)"
-        case let .architecture(architecture): "Architecture: \(architecture)"
-        }
+        source.title
     }
 
     var valueTypeTitle: String {
-        switch value {
-        case .string: "String"
-        case .boolean: "Boolean"
-        case .integer: "Integer"
-        case .real: "Real"
-        case .data: "Data"
-        case .date: "Date"
-        case .array: "Array"
-        case .dictionary: "Dictionary"
-        }
+        value.typeTitle
     }
 }
 
