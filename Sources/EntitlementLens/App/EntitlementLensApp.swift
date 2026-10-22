@@ -32,6 +32,12 @@ struct EntitlementLensApp: App {
                     store.chooseFolderAndScan()
                 }
                 .keyboardShortcut("o", modifiers: [.command])
+                Button("Open Saved Candidate…") {
+                    store.chooseSavedCandidate()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .accessibilityIdentifier("research.open-saved-command")
+                .disabled(!store.canOpenSavedCandidate)
             }
             CommandMenu("Scan") {
                 Button("Applications") { store.scanApplications() }

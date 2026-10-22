@@ -58,6 +58,14 @@ struct ContentView: View {
                 .accessibilityIdentifier("research.prepare")
                 .disabled(store.isScanning || store.researchSelectedFindingIDs.isEmpty)
 
+                Button {
+                    store.chooseSavedCandidate()
+                } label: {
+                    Label("Open Saved Candidate…", systemImage: "doc.text.magnifyingglass")
+                }
+                .accessibilityIdentifier("research.open-saved")
+                .disabled(!store.canOpenSavedCandidate)
+
                 Menu {
                     Button("JSON…") { store.exportResults(format: .json) }
                         .accessibilityIdentifier("export.json")
@@ -82,6 +90,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $store.showsResearchSubmission) {
             ResearchSubmissionView(store: store)
+        }
+        .sheet(item: $store.savedCandidateSelection) { selection in
+            SavedCandidateReviewView(selection: selection)
         }
     }
 }

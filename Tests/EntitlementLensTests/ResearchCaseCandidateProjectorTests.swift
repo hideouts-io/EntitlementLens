@@ -64,6 +64,16 @@ struct ResearchCaseCandidateProjectorTests {
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         try json.write(to: output.appendingPathComponent("controlled-universal-candidate.json"), options: [.atomic])
 
+        let savedBytes = Data(" \r\n".utf8) + json + Data("\n".utf8)
+        let savedURL = root.appendingPathComponent("saved-candidate.json")
+        try savedBytes.write(to: savedURL)
+        let reopened = try SavedResearchCandidateLoader.load(at: savedURL)
+        #expect(reopened.data == savedBytes)
+        #expect(Data(reopened.text.utf8) == savedBytes)
+        #expect(reopened.metadata.caseID == metadata.caseID)
+        #expect(reopened.metadata.sourceCommit == metadata.sourceCommit)
+        #expect(try Data(contentsOf: savedURL) == savedBytes)
+
         let invalidCommit = ResearchCaseCandidateMetadata(caseID: metadata.caseID, sampleKind: metadata.sampleKind,
             sourceReference: metadata.sourceReference, artifactLabel: metadata.artifactLabel, sourceCommit: "a29639f")
         #expect(throws: ResearchCaseCandidateError.self) {
