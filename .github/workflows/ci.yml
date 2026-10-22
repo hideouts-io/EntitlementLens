@@ -27,4 +27,5 @@ jobs:
       - name: Build the app and helper
         run: swift build
       - name: Run integration tests
-        run: swift test
+        # Main-actor fixtures invoke signing/compiler tools synchronously; isolate tests from that contention.
+        run: swift test --no-parallel

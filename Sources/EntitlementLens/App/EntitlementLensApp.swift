@@ -44,7 +44,9 @@ struct EntitlementLensApp: App {
             }
             CommandMenu("Export") {
                 Button("Export JSON…") { store.exportResults(format: .json) }
+                    .accessibilityIdentifier("export.command.json")
                 Button("Export CSV…") { store.exportResults(format: .csv) }
+                    .accessibilityIdentifier("export.command.csv")
             }
         }
     }

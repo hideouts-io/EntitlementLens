@@ -26,6 +26,7 @@ struct BinaryDetailView: View {
                         )
                         signingMetadata(signing)
                     }
+                    StaticFeatureCoverageView(features: finding.staticFeatures)
                     if !finding.runningBoardPolicies.isEmpty {
                         RunningBoardPolicyView(policies: finding.runningBoardPolicies)
                     }

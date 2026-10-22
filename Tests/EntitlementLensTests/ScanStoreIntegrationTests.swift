@@ -5,6 +5,34 @@ import Testing
 @MainActor
 struct ScanStoreIntegrationTests {
     @Test
+    func scanSummaryUsesAppliedOptionsAndDoesNotRetainInvalidScope() async throws {
+        let store = ScanStore()
+        let root = URL(fileURLWithPath: "/usr/bin/true")
+        store.includeHidden = false
+        store.deepCarve = false
+        store.excludedPathsText = "/System/Volumes/VM"
+        store.startScan(roots: [root])
+        try await waitForPresentation(store)
+        #expect(store.lastError == nil)
+        #expect(store.scannedRoots == [root])
+        #expect(!store.scannedIncludeHidden)
+        #expect(!store.scannedDeepCarve)
+        #expect(store.scannedExcludedPaths == ["/System/Volumes/VM"])
+
+        store.includeHidden = true
+        store.deepCarve = true
+        store.excludedPathsText = "relative-path"
+        #expect(!store.scannedIncludeHidden)
+        #expect(!store.scannedDeepCarve)
+        #expect(store.scannedExcludedPaths == ["/System/Volumes/VM"])
+
+        store.startScan(roots: [root])
+        #expect(store.scannedRoots.isEmpty)
+        #expect(!store.isScanning)
+        #expect(store.lastError?.contains("not an absolute path") == true)
+    }
+
+    @Test
     func largeScanKeepsLatestSearchAndSelectionWithoutDroppingRecords() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("EntitlementLens-stress-\(UUID())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

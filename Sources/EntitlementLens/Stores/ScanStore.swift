@@ -81,6 +81,11 @@ final class ScanStore {
     var isScanning = false
     private(set) var scanWasCancelled = false
     var scannedRoots: [URL] = []
+    private(set) var scannedIncludeHidden = true
+    private(set) var scannedDeepCarve = false
+    private(set) var scannedExcludedPaths: [String] = []
+    var researchSelectedFindingIDs: Set<UUID> = []
+    var showsResearchSubmission = false
     var lastError: String?
     var showsIssues = false
     var privilegedHelperState = PrivilegedHelperController.state()
@@ -204,6 +209,7 @@ final class ScanStore {
         panel.prompt = "Scan Folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
+        panel.allowedContentTypes = [.folder]
         panel.allowsMultipleSelection = false
         panel.resolvesAliases = false
         guard panel.runModal() == .OK, let url = panel.url else {
@@ -410,7 +416,9 @@ final class ScanStore {
         privilegedRecords = []
         statistics = ScanStatistics()
         selectedFindingID = nil
-        scannedRoots = roots
+        researchSelectedFindingIDs = []
+        showsResearchSubmission = false
+        scannedRoots = []
         lastError = nil
         isScanning = true
         scanWasCancelled = false
@@ -423,6 +431,10 @@ final class ScanStore {
             lastError = error.localizedDescription
             return
         }
+        scannedRoots = roots
+        scannedIncludeHidden = includeHidden
+        scannedDeepCarve = deepCarve
+        scannedExcludedPaths = exclusions.map(\.path)
         let configuration = ScanConfiguration(
             roots: roots,
             includeHidden: includeHidden,
