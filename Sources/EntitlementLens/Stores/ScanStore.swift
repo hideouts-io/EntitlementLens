@@ -86,6 +86,7 @@ final class ScanStore {
     private(set) var scannedExcludedPaths: [String] = []
     var researchSelectedFindingIDs: Set<UUID> = []
     var showsResearchSubmission = false
+    var savedCandidateSelection: SavedCandidateSelection?
     var lastError: String?
     var showsIssues = false
     var privilegedHelperState = PrivilegedHelperController.state()
