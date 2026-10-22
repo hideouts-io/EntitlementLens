@@ -318,7 +318,8 @@ enum ScanCoordinator {
                 signing: signing
             )
             let staticFeatures = try StaticFeatureCollector.collectCode(
-                sourceURL: file.url, kind: file.kind, provenance: provenance, signing: signing, machO: machO
+                sourceURL: file.url, kind: file.kind, provenance: provenance, signing: signing, machO: machO,
+                collectorBuild: configuration.collectorBuild
             )
             try identity.verifyCurrentContents()
             return ScanFinding(
@@ -350,7 +351,7 @@ enum ScanCoordinator {
                 catalog: runningBoardCatalog
             )
             let staticFeatures = try StaticFeatureCollector.collectFile(
-                sourceURL: file.url, kind: file.kind, provenance: provenance
+                sourceURL: file.url, kind: file.kind, provenance: provenance, collectorBuild: configuration.collectorBuild
             )
             try identity.verifyCurrentContents()
             return ScanFinding(
@@ -376,7 +377,7 @@ enum ScanCoordinator {
             let provenance = try ArtifactProvenanceCollector.collectFile(file.url)
             try identity.verifyProvenance(provenance)
             let staticFeatures = try StaticFeatureCollector.collectFile(
-                sourceURL: file.url, kind: file.kind, provenance: provenance
+                sourceURL: file.url, kind: file.kind, provenance: provenance, collectorBuild: configuration.collectorBuild
             )
             try identity.verifyCurrentContents()
             return ScanFinding(

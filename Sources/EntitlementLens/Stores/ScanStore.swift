@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 @MainActor
 @Observable
 final class ScanStore {
+    private let collectorBuild = CollectorBuildProvenance.bundled(in: .main)
     var findings: [ScanFinding] = []
     var issues: [ScanIssue] = []
     var statistics = ScanStatistics()
@@ -437,6 +438,7 @@ final class ScanStore {
         scannedDeepCarve = deepCarve
         scannedExcludedPaths = exclusions.map(\.path)
         let configuration = ScanConfiguration(
+            collectorBuild: collectorBuild,
             roots: roots,
             includeHidden: includeHidden,
             deepCarve: deepCarve,

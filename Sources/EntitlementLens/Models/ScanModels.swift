@@ -508,6 +508,7 @@ struct ScanIssue: Codable, Hashable, Identifiable, Sendable {
 }
 
 struct ScanConfiguration: Sendable {
+    let collectorBuild: CollectorBuildProvenance
     let roots: [URL]
     let includeHidden: Bool
     let deepCarve: Bool

@@ -183,6 +183,7 @@ private func makeRangeSignedFixture(_ root: URL) throws -> URL {
 
 private func collectRangeFixture(_ url: URL) async -> (findings: [ScanFinding], issues: [ScanIssue], completed: Bool) {
     let configuration = ScanConfiguration(
+        collectorBuild: .unknown,
         roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
         queueCapacity: 4, maximumCarveBytes: 1_048_576, excludedPathPrefixes: []
     )

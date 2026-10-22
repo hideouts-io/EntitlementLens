@@ -10,6 +10,8 @@ struct StaticCollectionContext: Codable, Hashable, Sendable {
     let collector: String
     let appVersion: String?
     let appBuild: String?
+    /// Absent in legacy findings; never supplied from the app used to reopen an export.
+    let collectorBuild: CollectorBuildProvenance?
     let collectedAt: Date
     let hostOperatingSystem: SourceOperatingSystem
 
@@ -17,6 +19,7 @@ struct StaticCollectionContext: Codable, Hashable, Sendable {
         case collector
         case appVersion = "app_version"
         case appBuild = "app_build"
+        case collectorBuild = "collector_build"
         case collectedAt = "collected_at"
         case hostOperatingSystem = "host_operating_system"
     }

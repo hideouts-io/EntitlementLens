@@ -92,6 +92,7 @@ struct SystemIntegrationTests {
     @Test
     func scansSystemBinaryThroughCompletePipeline() async {
         let configuration = ScanConfiguration(
+            collectorBuild: .unknown,
             roots: [URL(fileURLWithPath: "/usr/bin/ssh")],
             includeHidden: true,
             deepCarve: false,

@@ -191,6 +191,7 @@ private func verifyStaticFeatureExports(_ finding: ScanFinding) throws -> Data {
 
 private func collectSelectedStaticFeatureFinding(_ url: URL) async throws -> ScanFinding {
     let configuration = ScanConfiguration(
+        collectorBuild: .unknown,
         roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
         queueCapacity: 4, maximumCarveBytes: 1_048_576, excludedPathPrefixes: []
     )

@@ -455,7 +455,7 @@ private func researchConsumerFinding(_ finding: ScanFinding, features: StaticFea
 }
 
 private func researchConsumerFinding(_ url: URL) async throws -> ScanFinding {
-    let configuration = ScanConfiguration(roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
+    let configuration = ScanConfiguration(collectorBuild: .unknown, roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
         queueCapacity: 4, maximumCarveBytes: 1_048_576, excludedPathPrefixes: [])
     var findings: [ScanFinding] = []
     var issues: [ScanIssue] = []
