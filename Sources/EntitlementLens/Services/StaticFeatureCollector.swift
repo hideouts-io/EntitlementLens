@@ -6,7 +6,8 @@ enum StaticFeatureCollector {
         kind: FileKind,
         provenance: ArtifactProvenance,
         signing: SigningDetails,
-        machO: MachOStaticInspection
+        machO: MachOStaticInspection,
+        collectorBuild: CollectorBuildProvenance
     ) throws -> StaticFeatureSet {
         try Task.checkCancellation()
         let analyzedURL = URL(fileURLWithPath: provenance.analyzedPath)
@@ -24,7 +25,7 @@ enum StaticFeatureCollector {
             schemaVersion: .v3,
             analyzedPath: provenance.analyzedPath,
             artifactSHA256: provenance.sha256,
-            context: context(provenance),
+            context: context(provenance, collectorBuild: collectorBuild),
             signer: signature.signer,
             embeddedCertificates: signature.embeddedCertificates,
             entitlements: entitlementEvidence(signing: signing, provenance: provenance),
@@ -40,7 +41,8 @@ enum StaticFeatureCollector {
     static func collectFile(
         sourceURL: URL,
         kind: FileKind,
-        provenance: ArtifactProvenance
+        provenance: ArtifactProvenance,
+        collectorBuild: CollectorBuildProvenance
     ) throws -> StaticFeatureSet {
         try Task.checkCancellation()
         let reason = "The selected artifact is not Mach-O code; this feature family does not apply."
@@ -51,7 +53,7 @@ enum StaticFeatureCollector {
             schemaVersion: .v3,
             analyzedPath: provenance.analyzedPath,
             artifactSHA256: provenance.sha256,
-            context: context(provenance),
+            context: context(provenance, collectorBuild: collectorBuild),
             signer: notApplicable(reason),
             embeddedCertificates: notApplicable(reason),
             entitlements: notApplicable("The selected artifact has no code-signature entitlement dictionary. Embedded entitlement-like data remains supporting evidence."),
@@ -64,12 +66,13 @@ enum StaticFeatureCollector {
         )
     }
 
-    private static func context(_ provenance: ArtifactProvenance) -> StaticCollectionContext {
+    private static func context(_ provenance: ArtifactProvenance, collectorBuild: CollectorBuildProvenance) -> StaticCollectionContext {
         let appBundle = Bundle.main.bundleIdentifier == "io.hideouts.EntitlementLens" ? Bundle.main : nil
         return StaticCollectionContext(
             collector: "EntitlementLens",
             appVersion: appBundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
             appBuild: appBundle?.object(forInfoDictionaryKey: "CFBundleVersion") as? String,
+            collectorBuild: collectorBuild,
             collectedAt: Date(),
             hostOperatingSystem: provenance.hostOperatingSystem
         )

@@ -657,7 +657,7 @@ private func verifyArm64ENameAndSlot(_ reference: StaticAPIReference, bytes: Dat
 }
 
 private func collectArm64EFinding(_ url: URL) async throws -> ScanFinding {
-    let configuration = ScanConfiguration(roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
+    let configuration = ScanConfiguration(collectorBuild: .unknown, roots: [url], includeHidden: true, deepCarve: false, maximumWorkerCount: 1,
         queueCapacity: 4, maximumCarveBytes: 1_048_576, excludedPathPrefixes: [])
     var findings: [ScanFinding] = []
     var issues: [ScanIssue] = []

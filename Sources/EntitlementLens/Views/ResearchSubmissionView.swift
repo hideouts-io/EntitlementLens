@@ -11,8 +11,6 @@ struct ResearchSubmissionView: View {
     @State private var sampleKind: ResearchCaseSampleKind?
     @State private var sourceReference = ""
     @State private var artifactLabel = ""
-    @State private var sourceCommit = ""
-    @State private var sourceRevisionVerified = false
     @State private var previewData: Data?
     @State private var previewText = ""
     @State private var previewError: String?
@@ -60,6 +58,24 @@ struct ResearchSubmissionView: View {
 
     private var selectedFinding: ScanFinding? {
         selectedFindings.first { $0.id == selectedFindingID }
+    }
+
+    private var collectorSourceCommit: String? {
+        selectedFinding?.staticFeatures?.context.collectorBuild?.exactSourceCommit
+    }
+
+    private var collectorBuildState: CollectorBuildState {
+        if collectorSourceCommit != nil { return .clean }
+        return selectedFinding?.staticFeatures?.context.collectorBuild?.state == .dirty ? .dirty : .unknown
+    }
+
+    private var provenanceError: String {
+        switch collectorBuildState {
+        case .dirty:
+            "This finding was collected by a build with uncommitted source changes. Build from a clean committed checkout, then run a new scan before preparing a candidate."
+        case .unknown, .clean:
+            "This finding has no exact collector build revision. Use an app packaged from a clean committed checkout, then run a new scan before preparing a candidate."
+        }
     }
 
     private var introduction: some View {
@@ -114,14 +130,24 @@ struct ResearchSubmissionView: View {
                 .accessibilityIdentifier("research.source-reference")
             TextField("Artifact label", text: $artifactLabel, prompt: Text("Public label without a path or person name"))
                 .accessibilityIdentifier("research.artifact-label")
-            TextField("Collector source commit", text: $sourceCommit, prompt: Text("Exact 40-character Git SHA"))
-                .font(.system(.body, design: .monospaced))
-                .accessibilityIdentifier("research.source-commit")
-            Text("The app does not verify this Git revision. A checkout with uncommitted collector changes has no exact source commit; its HEAD alone must not be entered as if it described the build.")
+            LabeledContent("Collector build") {
+                Text(collectorBuildState.rawValue)
+                    .accessibilityIdentifier("research.build-state")
+            }
+            LabeledContent("Collector source commit") {
+                Text(collectorSourceCommit ?? "Unavailable")
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("research.source-commit")
+            }
+            Text("Build identity was recorded when the app was packaged and retained with this finding. It does not establish artifact origin, trust, or runtime use.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Toggle("I verified this commit matches the collector source used for this scan", isOn: $sourceRevisionVerified)
-                .accessibilityIdentifier("research.source-verified")
+            if collectorSourceCommit == nil {
+                Label(provenanceError, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("research.build-provenance-error")
+            }
 
             if let previewError {
                 Label(previewError, systemImage: "exclamationmark.triangle")
@@ -130,7 +156,7 @@ struct ResearchSubmissionView: View {
             }
             Button("Preview Every Included Field") { preparePreview() }
                 .buttonStyle(.borderedProminent)
-                .disabled(selectedFinding == nil || store.isScanning || store.scanWasCancelled || !sourceRevisionVerified)
+                .disabled(selectedFinding == nil || store.isScanning || store.scanWasCancelled || collectorSourceCommit == nil)
                 .accessibilityIdentifier("research.preview")
         }
         .frame(maxWidth: 620, alignment: .leading)
@@ -185,13 +211,13 @@ struct ResearchSubmissionView: View {
             previewError = "Choose one checked finding and its sample source."
             return
         }
-        guard sourceRevisionVerified else {
-            previewError = "Verify the exact collector source revision before preparing a case."
+        guard collectorSourceCommit != nil else {
+            previewError = provenanceError
             return
         }
         let metadata = ResearchCaseCandidateMetadata(
             caseID: caseID, sampleKind: sampleKind, sourceReference: sourceReference,
-            artifactLabel: artifactLabel, sourceCommit: sourceCommit
+            artifactLabel: artifactLabel
         )
         do {
             let candidate = try ResearchCaseCandidateProjector.project(finding: finding, metadata: metadata)
@@ -232,8 +258,6 @@ struct ResearchSubmissionView: View {
         sampleKind = nil
         sourceReference = ""
         artifactLabel = ""
-        sourceCommit = ""
-        sourceRevisionVerified = false
         previewData = nil
         previewText = ""
         previewError = nil

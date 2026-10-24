@@ -28,20 +28,21 @@ struct ResearchCaseCandidateProjectorTests {
         </dict></plist>
         """.utf8)
         let file = try makeSignedUniversalFixture(root: root, arm64Entitlements: arm, x86Entitlements: x86)
-        let finding = try await collectResearchCaseFinding(file)
+        // Controlled identity exercises propagation; it is not a provenance claim about the test runner.
+        let cleanBuild = CollectorBuildProvenance(state: .clean, sourceCommit: String(repeating: "a", count: 40))
+        let finding = try await collectResearchCaseFinding(file, collectorBuild: cleanBuild)
         let metadata = ResearchCaseCandidateMetadata(
             caseID: "controlled-universal-candidate", sampleKind: .controlledFixture,
             sourceReference: "ResearchCaseCandidateProjectorTests.controlledUniversalFixture",
-            artifactLabel: "controlled-universal-fixture",
-            // This syntax sentinel is not a claim about the uncommitted test fixture's source revision.
-            sourceCommit: String(repeating: "a", count: 40)
+            artifactLabel: "controlled-universal-fixture"
         )
         let candidate = try ResearchCaseCandidateProjector.project(finding: finding, metadata: metadata)
         #expect(candidate.schemaVersion == 1)
         #expect(candidate.collector.featureSchemaVersion == finding.staticFeatures?.schemaVersion.rawValue)
         #expect(candidate.collector.hostMacOSVersion == finding.provenance.hostOperatingSystem.productVersion)
         #expect(candidate.collector.hostMacOSBuild == finding.provenance.hostOperatingSystem.buildVersion)
-        #expect(candidate.collector.sourceCommit == metadata.sourceCommit)
+        #expect(finding.staticFeatures?.context.collectorBuild == cleanBuild)
+        #expect(candidate.collector.sourceCommit == cleanBuild.exactSourceCommit)
         #expect(candidate.artifactSHA256 == finding.provenance.sha256)
         #expect(Set(candidate.architectures.map(\.name)) == ["arm64", "x86_64"])
         #expect(candidate.architectures.allSatisfy { $0.collectionState == .complete && $0.signatureIntegrity == .valid })
@@ -71,25 +72,48 @@ struct ResearchCaseCandidateProjectorTests {
         #expect(reopened.data == savedBytes)
         #expect(Data(reopened.text.utf8) == savedBytes)
         #expect(reopened.metadata.caseID == metadata.caseID)
-        #expect(reopened.metadata.sourceCommit == metadata.sourceCommit)
+        #expect(reopened.metadata.sourceCommit == cleanBuild.exactSourceCommit)
         #expect(try Data(contentsOf: savedURL) == savedBytes)
 
-        let invalidCommit = ResearchCaseCandidateMetadata(caseID: metadata.caseID, sampleKind: metadata.sampleKind,
-            sourceReference: metadata.sourceReference, artifactLabel: metadata.artifactLabel, sourceCommit: "a29639f")
-        #expect(throws: ResearchCaseCandidateError.self) {
-            _ = try ResearchCaseCandidateProjector.project(finding: finding, metadata: invalidCommit)
+        let features = try #require(finding.staticFeatures)
+        let unsupportedBuilds: [CollectorBuildProvenance?] = [nil, .unknown,
+            CollectorBuildProvenance(state: .dirty, sourceCommit: nil),
+            CollectorBuildProvenance(state: .clean, sourceCommit: "a29639f"),
+            CollectorBuildProvenance(state: .dirty, sourceCommit: cleanBuild.exactSourceCommit),
+            CollectorBuildProvenance(state: .unknown, sourceCommit: cleanBuild.exactSourceCommit)]
+        for build in unsupportedBuilds {
+            let context = StaticCollectionContext(collector: features.context.collector,
+                appVersion: features.context.appVersion, appBuild: features.context.appBuild,
+                collectorBuild: build, collectedAt: features.context.collectedAt,
+                hostOperatingSystem: features.context.hostOperatingSystem)
+            let unsupported = researchCaseFinding(finding, signing: finding.signing, warnings: [],
+                features: researchCaseFeatures(features, entitlements: features.entitlements, context: context))
+            #expect(throws: ResearchCaseCandidateError.self) {
+                _ = try ResearchCaseCandidateProjector.project(finding: unsupported, metadata: metadata)
+            }
+            if build == nil {
+                let legacy = try JSONDecoder().decode(ScanFinding.self, from: JSONEncoder().encode(unsupported))
+                #expect(legacy.staticFeatures?.context.collectorBuild == nil)
+            }
         }
+        let laterBuild = CollectorBuildProvenance(state: .dirty, sourceCommit: nil)
+        let laterFinding = try await collectResearchCaseFinding(file, collectorBuild: laterBuild)
+        #expect(laterFinding.staticFeatures?.context.collectorBuild == laterBuild)
+        #expect(throws: ResearchCaseCandidateError.self) {
+            _ = try ResearchCaseCandidateProjector.project(finding: laterFinding, metadata: metadata)
+        }
+        #expect(try ResearchCaseCandidateProjector.project(finding: finding, metadata: metadata).collector.sourceCommit
+            == cleanBuild.exactSourceCommit)
         let warned = researchCaseFinding(finding, signing: finding.signing,
             warnings: ["Source analysis was incomplete."], features: finding.staticFeatures)
         #expect(throws: ResearchCaseCandidateError.self) {
             _ = try ResearchCaseCandidateProjector.project(finding: warned, metadata: metadata)
         }
-        let features = try #require(finding.staticFeatures)
         let partialCollection = StaticFeatureCollection(
             state: StaticCollectionState.partial, reason: "Controlled incomplete collection.",
             records: features.entitlements.records, limitations: ["Some declarations were unavailable."], limits: []
         )
-        let partialFeatures = researchCaseFeatures(features, entitlements: partialCollection)
+        let partialFeatures = researchCaseFeatures(features, entitlements: partialCollection, context: features.context)
         let partial = researchCaseFinding(finding, signing: finding.signing, warnings: [], features: partialFeatures)
         #expect(throws: ResearchCaseCandidateError.self) {
             _ = try ResearchCaseCandidateProjector.project(finding: partial, metadata: metadata)
@@ -118,7 +142,7 @@ struct ResearchCaseCandidateProjectorTests {
             reason: features.entitlements.reason, records: changedRecords,
             limitations: features.entitlements.limitations, limits: features.entitlements.limits)
         let divergentSlot = researchCaseFinding(finding, signing: changedSigning, warnings: [],
-            features: researchCaseFeatures(features, entitlements: changedCollection))
+            features: researchCaseFeatures(features, entitlements: changedCollection, context: features.context))
         #expect(throws: ResearchCaseCandidateError.self) {
             _ = try ResearchCaseCandidateProjector.project(finding: divergentSlot, metadata: metadata)
         }
@@ -137,8 +161,8 @@ struct ResearchCaseCandidateProjectorTests {
     }
 }
 
-private func collectResearchCaseFinding(_ url: URL) async throws -> ScanFinding {
-    let configuration = ScanConfiguration(roots: [url], includeHidden: true, deepCarve: false,
+private func collectResearchCaseFinding(_ url: URL, collectorBuild: CollectorBuildProvenance) async throws -> ScanFinding {
+    let configuration = ScanConfiguration(collectorBuild: collectorBuild, roots: [url], includeHidden: true, deepCarve: false,
         maximumWorkerCount: 1, queueCapacity: 4, maximumCarveBytes: 1_048_576, excludedPathPrefixes: [])
     var findings: [ScanFinding] = []
     var issues: [ScanIssue] = []
@@ -184,10 +208,10 @@ private func researchCaseSigning(
 }
 
 private func researchCaseFeatures(
-    _ features: StaticFeatureSet, entitlements: StaticFeatureCollection<StaticEntitlementEvidence>
+    _ features: StaticFeatureSet, entitlements: StaticFeatureCollection<StaticEntitlementEvidence>, context: StaticCollectionContext
 ) -> StaticFeatureSet {
     StaticFeatureSet(schemaVersion: features.schemaVersion, analyzedPath: features.analyzedPath,
-        artifactSHA256: features.artifactSHA256, context: features.context, signer: features.signer,
+        artifactSHA256: features.artifactSHA256, context: context, signer: features.signer,
         embeddedCertificates: features.embeddedCertificates, entitlements: entitlements,
         architectures: features.architectures, loadCommands: features.loadCommands,
         linkedFrameworks: features.linkedFrameworks, apiReferences: features.apiReferences,

@@ -11,7 +11,6 @@ struct ResearchCaseCandidateMetadata: Hashable, Sendable {
     let sampleKind: ResearchCaseSampleKind
     let sourceReference: String
     let artifactLabel: String
-    let sourceCommit: String
 }
 
 enum ResearchCaseCandidateError: LocalizedError {
@@ -140,7 +139,7 @@ struct ResearchCaseCandidate: Encodable, Hashable, Sendable {
     }
 }
 
-/// Projects only complete architecture-qualified signed declarations. It performs no file access or source-commit verification.
+/// Projects complete architecture-qualified declarations with their captured clean collector revision.
 enum ResearchCaseCandidateProjector {
     static func project(finding: ScanFinding, metadata: ResearchCaseCandidateMetadata) throws -> ResearchCaseCandidate {
         try validate(metadata)
@@ -149,6 +148,9 @@ enum ResearchCaseCandidateProjector {
         }
         guard let signing = finding.signing, let features = finding.staticFeatures else {
             throw ResearchCaseCandidateError.missingEvidence("Signing or versioned static-feature evidence is missing.")
+        }
+        guard let sourceCommit = features.context.collectorBuild?.exactSourceCommit else {
+            throw ResearchCaseCandidateError.ineligibleEvidence("The scan has no exact clean collector build revision. Rescan with a clean packaged build that records its source revision.")
         }
         guard finding.installedCounterpart == nil, finding.runningBoardPolicies.isEmpty,
               finding.embeddedObjects.isEmpty, finding.warnings.isEmpty,
@@ -253,7 +255,7 @@ enum ResearchCaseCandidateProjector {
             schemaVersion: 1, caseID: metadata.caseID, sampleKind: metadata.sampleKind,
             sourceReference: metadata.sourceReference, artifactLabel: metadata.artifactLabel,
             artifactSHA256: finding.provenance.sha256,
-            collector: ResearchCaseCollector(name: "EntitlementLens", sourceCommit: metadata.sourceCommit,
+            collector: ResearchCaseCollector(name: "EntitlementLens", sourceCommit: sourceCommit,
                 featureSchemaVersion: features.schemaVersion.rawValue, collectedAtUTC: date,
                 hostMacOSVersion: host.productVersion, hostMacOSBuild: host.buildVersion),
             signatureIntegrity: ResearchCaseSignatureIntegrity(signing.status), entitlementCollectionState: .complete,
@@ -278,9 +280,6 @@ enum ResearchCaseCandidateProjector {
         }
         guard safeLabel(metadata.artifactLabel, maximum: 80) else {
             throw ResearchCaseCandidateError.invalidMetadata("Artifact label must use 1–80 ASCII letters, digits, spaces, periods, underscores, or hyphens.")
-        }
-        guard isLowercaseHex(metadata.sourceCommit, length: 40) else {
-            throw ResearchCaseCandidateError.invalidMetadata("Source commit must be the exact 40-character lowercase Git SHA of the collector source.")
         }
     }
 

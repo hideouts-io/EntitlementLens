@@ -97,7 +97,7 @@ struct PresentationIntegrationTests {
     }
 
     private func collect(_ url: URL, deepCarve: Bool, exclusions: [URL]) async -> (findings: [ScanFinding], issues: [ScanIssue]) {
-        let configuration = ScanConfiguration(roots: [url], includeHidden: true, deepCarve: deepCarve,
+        let configuration = ScanConfiguration(collectorBuild: .unknown, roots: [url], includeHidden: true, deepCarve: deepCarve,
             maximumWorkerCount: 2, queueCapacity: 8, maximumCarveBytes: 1_048_576, excludedPathPrefixes: exclusions)
         var findings: [ScanFinding] = []
         var issues: [ScanIssue] = []
