@@ -3,6 +3,7 @@ import Foundation
 struct ResearchCaseReviewMetadata: Hashable, Sendable {
     let caseID: String
     let artifactLabel: String
+    let artifactSHA256: String
     let sourceCommit: String
 }
 
@@ -60,7 +61,7 @@ enum ResearchCaseSchemaValidator {
             allowed: ["controlled_fixture", "system_binary", "reviewed_scan"])
         _ = try safeLabel(try field(root, "source_reference", path: "$"), path: "$.source_reference", maximum: 140)
         let artifactLabel = try safeLabel(try field(root, "artifact_label", path: "$"), path: "$.artifact_label", maximum: 80)
-        _ = try hexString(try field(root, "artifact_sha256", path: "$"), path: "$.artifact_sha256", length: 64)
+        let artifactSHA256 = try hexString(try field(root, "artifact_sha256", path: "$"), path: "$.artifact_sha256", length: 64)
         let sourceCommit = try validateCollector(try field(root, "collector", path: "$"))
         try signatureIntegrity(try field(root, "signature_integrity", path: "$"), path: "$.signature_integrity")
         try collectionState(try field(root, "entitlement_collection_state", path: "$"), path: "$.entitlement_collection_state")
@@ -73,7 +74,8 @@ enum ResearchCaseSchemaValidator {
         }
         try constant(try field(root, "evidence_scope", path: "$"), path: "$.evidence_scope", expected: "static_signed_declarations")
         try constant(try field(root, "runtime_authorization", path: "$"), path: "$.runtime_authorization", expected: "not_assessed")
-        return ResearchCaseReviewMetadata(caseID: caseID, artifactLabel: artifactLabel, sourceCommit: sourceCommit)
+        return ResearchCaseReviewMetadata(caseID: caseID, artifactLabel: artifactLabel,
+            artifactSHA256: artifactSHA256, sourceCommit: sourceCommit)
     }
 
     private static func validateCollector(_ value: ResearchCaseJSONValue) throws -> String {
