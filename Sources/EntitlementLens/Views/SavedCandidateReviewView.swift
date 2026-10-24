@@ -18,7 +18,7 @@ struct SavedCandidateReviewView: View {
                     Text(selection.url.lastPathComponent)
                         .font(.headline)
                         .textSelection(.enabled)
-                    Text("Read-only review of the selected file. Case-v1 validation checks its structure and values; source, signature, and runtime claims are not reverified.")
+                    Text("Read-only review of the selected file. Case-v1 validation checks its structure and values. You can compare a source artifact’s bytes below; origin, signature, and runtime claims are not reverified.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     switch state {
@@ -65,12 +65,13 @@ struct SavedCandidateReviewView: View {
                 Text(String(candidate.data.count))
                     .accessibilityIdentifier("research.review-byte-count")
             }
-            LabeledContent("File SHA-256") {
+            LabeledContent("Candidate file SHA-256") {
                 Text(candidate.sha256)
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
                     .accessibilityIdentifier("research.review-sha256")
             }
+            SourceArtifactVerificationView(candidate: candidate)
             Text("Original JSON")
                 .font(.headline)
             Text(candidate.text)

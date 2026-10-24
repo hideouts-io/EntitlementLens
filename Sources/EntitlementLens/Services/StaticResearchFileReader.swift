@@ -1,6 +1,16 @@
 import Darwin
 import Foundation
 
+struct StaticResearchFileIdentity: Hashable, Sendable {
+    let device: dev_t
+    let inode: ino_t
+}
+
+struct StaticResearchFileSnapshot: Sendable {
+    let data: Data
+    let identity: StaticResearchFileIdentity
+}
+
 enum StaticResearchJSONLimit: String {
     case nestingDepth = "nesting depth"
     case valueNodes = "value node count"
@@ -64,18 +74,22 @@ enum StaticResearchFileReader {
     private static let readChunkBytes = 16_384
 
     static func exportData(at url: URL) throws -> Data {
-        try regularFileData(at: url, maximumBytes: maximumExportBytes)
+        try regularFileSnapshot(at: url, maximumBytes: maximumExportBytes).data
     }
 
     static func sourceData(at url: URL) throws -> Data {
-        try regularFileData(at: url, maximumBytes: maximumSourceBytes)
+        try sourceSnapshot(at: url, maximumBytes: maximumSourceBytes).data
     }
 
     static func sourceData(at url: URL, maximumBytes: Int) throws -> Data {
+        try sourceSnapshot(at: url, maximumBytes: maximumBytes).data
+    }
+
+    static func sourceSnapshot(at url: URL, maximumBytes: Int) throws -> StaticResearchFileSnapshot {
         guard maximumBytes >= 0 else {
             throw StaticResearchFileError.limitExceeded(path: url.path, maximumBytes: 0)
         }
-        return try regularFileData(at: url, maximumBytes: min(maximumSourceBytes, maximumBytes))
+        return try regularFileSnapshot(at: url, maximumBytes: min(maximumSourceBytes, maximumBytes))
     }
 
     /// Bounds lexical structure before typed JSON decoding; JSONDecoder still validates grammar, UTF-8, and schema.
@@ -198,7 +212,7 @@ enum StaticResearchFileReader {
         return index
     }
 
-    private static func regularFileData(at url: URL, maximumBytes: Int) throws -> Data {
+    private static func regularFileSnapshot(at url: URL, maximumBytes: Int) throws -> StaticResearchFileSnapshot {
         try Task.checkCancellation()
         guard url.isFileURL, url.host == nil || url.host == "" || url.host == "localhost" else {
             throw StaticResearchFileError.unsupportedURL
@@ -209,8 +223,8 @@ enum StaticResearchFileReader {
         }
         let descriptor = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
         guard descriptor >= 0 else { throw filesystemError(operation: "open", path: path) }
-        let data: Data
-        do { data = try boundedData(descriptor: descriptor, path: path, maximumBytes: maximumBytes) }
+        let snapshot: StaticResearchFileSnapshot
+        do { snapshot = try boundedSnapshot(descriptor: descriptor, path: path, maximumBytes: maximumBytes) }
         catch {
             guard close(descriptor) == 0 else {
                 throw StaticResearchFileError.cleanupFailed(path: path, code: errno, primary: error)
@@ -218,10 +232,10 @@ enum StaticResearchFileReader {
             throw error
         }
         guard close(descriptor) == 0 else { throw filesystemError(operation: "close descriptor", path: path) }
-        return data
+        return snapshot
     }
 
-    private static func boundedData(descriptor: Int32, path: String, maximumBytes: Int) throws -> Data {
+    private static func boundedSnapshot(descriptor: Int32, path: String, maximumBytes: Int) throws -> StaticResearchFileSnapshot {
         var before = stat()
         guard fstat(descriptor, &before) == 0 else { throw filesystemError(operation: "read metadata", path: path) }
         guard before.st_mode & S_IFMT == S_IFREG else { throw StaticResearchFileError.unexpectedFileType(path) }
@@ -251,7 +265,8 @@ enum StaticResearchFileReader {
               before.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec,
               before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec,
               data.count == before.st_size else { throw StaticResearchFileError.changedDuringRead(path) }
-        return data
+        return StaticResearchFileSnapshot(data: data,
+            identity: StaticResearchFileIdentity(device: before.st_dev, inode: before.st_ino))
     }
 
     private static func filesystemError(operation: String, path: String) -> StaticResearchFileError {
