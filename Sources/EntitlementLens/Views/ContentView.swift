@@ -37,7 +37,7 @@ struct ContentView: View {
                 Button {
                     store.chooseFileAppAndScan()
                 } label: {
-                    Label("Scan File/App…", systemImage: "doc.badge.magnifyingglass")
+                    Label("Scan File/App…", systemImage: "doc.text.magnifyingglass")
                 }
                 .accessibilityIdentifier("scan.choose-file-app")
                 .disabled(store.isScanning)
