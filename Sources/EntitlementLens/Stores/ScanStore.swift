@@ -223,7 +223,7 @@ final class ScanStore {
     func chooseFileAppAndScan() {
         let panel = NSOpenPanel()
         panel.title = "Choose a file or code bundle to inspect"
-        panel.message = "Select one Mach-O file, code bundle, or property list as the scan root. Bundles include their contents. Normal inspection also reads host policy metadata and any detected installed counterpart."
+        panel.message = "Choose one Mach-O file, code bundle, or property list.\nBundles include their contents.\nInspection also reads host policy and any installed counterpart."
         panel.prompt = "Scan File/App"
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
