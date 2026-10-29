@@ -26,6 +26,12 @@ struct ArtifactAnalysisIdentity: Sendable {
     let sha256: String
 
     static func capture(_ file: ClassifiedFile) throws -> ArtifactAnalysisIdentity {
+        let analyzedURL = try analyzedURL(for: file)
+        try Task.checkCancellation()
+        return ArtifactAnalysisIdentity(analyzedURL: analyzedURL, sha256: try ArtifactProvenanceCollector.sha256(analyzedURL))
+    }
+
+    static func analyzedURL(for file: ClassifiedFile) throws -> URL {
         let analyzedURL: URL
         if file.kind == .bundle {
             guard let executable = Bundle(url: file.url)?.executableURL else {
@@ -41,8 +47,7 @@ struct ArtifactAnalysisIdentity: Sendable {
         } else {
             analyzedURL = file.url.standardizedFileURL
         }
-        try Task.checkCancellation()
-        return ArtifactAnalysisIdentity(analyzedURL: analyzedURL, sha256: try ArtifactProvenanceCollector.sha256(analyzedURL))
+        return analyzedURL
     }
 
     func verifyProvenance(_ provenance: ArtifactProvenance) throws {

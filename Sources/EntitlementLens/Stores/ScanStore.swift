@@ -220,6 +220,31 @@ final class ScanStore {
         startScan(roots: [url])
     }
 
+    func chooseFileAppAndScan() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a file or code bundle to inspect"
+        panel.message = "Choose one Mach-O file, code bundle, or property list.\nBundles include their contents.\nInspection also reads host policy and any installed counterpart."
+        panel.prompt = "Scan File/App"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.treatsFilePackagesAsDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.resolvesAliases = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        startFileAppScan(at: url)
+    }
+
+    func startFileAppScan(at url: URL) {
+        do {
+            let root = try ScanFileIntake.validatedRoot(at: url)
+            // Validate options before startScan can replace the current result set.
+            _ = try parsedExclusions(excludedPathsText)
+            startScan(roots: [root])
+        } catch {
+            lastError = "Could not start the selected scan: \(error.localizedDescription)"
+        }
+    }
+
     func scanApplications() {
         startScan(roots: existingURLs([
             "/Applications",

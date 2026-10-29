@@ -35,6 +35,14 @@ struct ContentView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
+                    store.chooseFileAppAndScan()
+                } label: {
+                    Label("Scan File/App…", systemImage: "doc.text.magnifyingglass")
+                }
+                .accessibilityIdentifier("scan.choose-file-app")
+                .disabled(store.isScanning)
+
+                Button {
                     store.chooseFolderAndScan()
                 } label: {
                     Label("Scan Folder", systemImage: "folder.badge.plus")
