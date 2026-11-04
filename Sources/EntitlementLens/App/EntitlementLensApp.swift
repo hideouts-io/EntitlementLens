@@ -21,13 +21,21 @@ struct EntitlementLensApp: App {
                     Button("OK") {
                         store.lastError = nil
                     }
+                    .accessibilityIdentifier("scan.error-dismiss")
                 } message: {
                     Text(store.lastError ?? "Unknown error")
+                        .accessibilityIdentifier("scan.error-message")
                 }
         }
         .defaultSize(width: 1_320, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {
+                Button("Scan File/App…") {
+                    store.chooseFileAppAndScan()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .option])
+                .accessibilityIdentifier("scan.file-app-command")
+                .disabled(store.isScanning)
                 Button("Scan Folder…") {
                     store.chooseFolderAndScan()
                 }

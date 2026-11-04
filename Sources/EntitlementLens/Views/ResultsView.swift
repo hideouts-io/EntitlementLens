@@ -23,6 +23,8 @@ struct ResultsView: View {
                 }
                 Text("\(store.filteredFindings.count) shown • \(store.findings.count) retained • \(store.hiddenEmptyCount) empty. Warnings remain visible.")
                     .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("results.retained-count")
+                    .accessibilityValue(String(store.findings.count))
                 if store.scanWasCancelled {
                     Label("Scan stopped. Retained results are partial; unvisited items were not assessed.", systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange)
@@ -75,6 +77,7 @@ struct ResultsView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
+                                        .accessibilityIdentifier("result.path.\(finding.id)")
                                 }
                             }
                         }
@@ -182,6 +185,7 @@ struct ResultsView: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(store.scanWasCancelled || !store.issues.isEmpty ? Color.orange : Color.secondary)
                     .accessibilityIdentifier("results.scan-status")
+                    .accessibilityValue(store.isScanning ? "scanning" : (store.scanWasCancelled ? "cancelled" : "idle"))
             }
             Text("\(store.statistics.discovered.formatted()) discovered • \(classifiedCount.formatted()) classified • \(store.findings.count.formatted()) analyzed/retained • \(store.issues.count.formatted()) coverage issues")
                 .font(.caption)
@@ -190,6 +194,8 @@ struct ResultsView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .help(rootPaths)
+                .accessibilityIdentifier("results.scan-roots")
+                .accessibilityValue(store.scannedRoots.map(\.path).joined(separator: "\n"))
             DisclosureGroup("Scope and options", isExpanded: $showsScanSetup) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Roots: \(rootPaths)")

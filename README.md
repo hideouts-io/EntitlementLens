@@ -42,7 +42,7 @@ cd EntitlementLens
 ./script/build_and_run.sh
 ```
 
-Choose **Scan Folder…** for a focused inspection, or use the Applications, System, and Entire Mac quick scans. Start with **Deep carve** disabled when you need fast signed-code inventory. Enable it when bounded embedded plist and strings-like evidence is relevant to the investigation.
+Choose **Scan File/App…** for one Mach-O file, code bundle, or property list, **Scan Folder…** for a focused directory, or use the Applications, System, and Entire Mac quick scans. Start with **Deep carve** disabled when you need fast signed-code inventory. Enable it when bounded embedded plist and strings-like evidence is relevant to the investigation.
 
 Use the Coverage view after every significant scan. A missing result is not evidence that a file or entitlement is absent if the corresponding path was excluded, inaccessible, skipped, cancelled, or not analyzed by the selected options.
 
@@ -138,7 +138,7 @@ The app and helper must share the same signing team. Registration still requires
 
 ## Scanning workflow
 
-1. Select a focused folder or quick-scan scope.
+1. Select one file/code bundle with **Scan File/App…** (Option-Command-O), a focused folder, or a quick-scan scope. A selected file is the sole enumerated root; a selected bundle includes its descendants. Normal host-policy collection and installed-counterpart comparison still apply. Picker cancellation keeps the current results. Missing, unreadable, symbolic-link, and unsupported selections show an error before replacing results; bundle executables must resolve inside the selected bundle. Scan options and exclusions still apply, and invalid exclusions preserve the current results when starting this direct intake.
 2. Decide whether hidden files belong in scope.
 3. Leave **Deep carve** off for a faster signing inventory, or enable it for bounded embedded-object and strings analysis.
 4. Review the default exclusions before a whole-machine scan and add semicolon-separated absolute paths when necessary.
